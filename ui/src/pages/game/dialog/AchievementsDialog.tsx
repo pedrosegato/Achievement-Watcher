@@ -61,9 +61,9 @@ export function AchievementsDialog({
           search.current?.focus();
         }}
       >
-        <header className="relative mb-3.5 overflow-hidden bg-[#111] px-[22px] pt-[26px] pb-[18px]">
+        <header className="relative mb-3.5 shrink-0 overflow-hidden bg-[#111] px-[22px] pt-[26px] pb-[18px]">
           <div className="absolute inset-0">
-            <ArtImage src={detail.heroUrl} />
+            <ArtImage src={detail.heroUrl} position="center 30%" />
           </div>
           <div className="absolute inset-0 bg-[rgba(8,9,11,0.62)]" />
           <div className="relative flex flex-col gap-1.5 text-white">
@@ -85,7 +85,7 @@ export function AchievementsDialog({
             </button>
           </DialogClose>
         </header>
-        <div className="flex flex-wrap gap-2 px-[22px] pb-3">
+        <div className="flex shrink-0 flex-wrap gap-2 px-[22px] pb-3">
           <label className="flex min-w-[200px] flex-1 items-center gap-2 rounded-card border border-line bg-surface px-3 py-[7px] text-[13px] text-dim focus-within:text-muted">
             <Icon name="search" size={16} />
             <input
