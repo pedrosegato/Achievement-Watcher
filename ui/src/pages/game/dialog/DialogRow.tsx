@@ -19,31 +19,36 @@ export const DialogRow = memo(function DialogRow({
   aside,
 }: DialogRowProps) {
   const { t, locale } = useI18n();
+  const side =
+    aside ??
+    (row.unlockedAt !== null && (
+      <time className="text-[12px] text-muted @md:whitespace-nowrap">
+        {t("dialog.unlockedOn", { date: formatDateTime(row.unlockedAt, locale) })}
+      </time>
+    ));
   return (
-    <div className="dialog-row flex items-center gap-3.5 rounded-card border border-line bg-surface px-3.5 py-2.5">
-      <AchievementIcon
-        src={locked ? (row.iconGrayUrl ?? row.iconUrl) : row.iconUrl}
-        gray={locked}
-        rare={rare}
-        size={40}
-      />
-      <div className="mr-auto flex min-w-0 flex-col">
-        <span className={cn("font-[650] text-[14px]", locked && "text-muted")}>
-          {row.displayName}
-        </span>
-        <span className="text-[12.5px] text-muted">{row.description}</span>
-        {row.percent !== null && (
-          <span className="text-[12px] text-dim">
-            {t("achievement.playersOf", { pct: formatPercent(row.percent, locale) })}
+    <div className="dialog-row @container rounded-card border border-line bg-surface">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3.5 gap-y-1.5 px-3.5 py-2.5 @md:grid-cols-[auto_minmax(0,1fr)_auto]">
+        <AchievementIcon
+          src={locked ? (row.iconGrayUrl ?? row.iconUrl) : row.iconUrl}
+          gray={locked}
+          rare={rare}
+          size={40}
+          className={cn(side && "row-span-2 @md:row-span-1")}
+        />
+        <div className="flex min-w-0 flex-col">
+          <span className={cn("font-[650] text-[14px]", locked && "text-muted")}>
+            {row.displayName}
           </span>
-        )}
+          <span className="text-[12.5px] text-muted">{row.description}</span>
+          {row.percent !== null && (
+            <span className="text-[12px] text-dim">
+              {t("achievement.playersOf", { pct: formatPercent(row.percent, locale) })}
+            </span>
+          )}
+        </div>
+        {side && <div className="col-start-2 @md:col-start-3 @md:row-start-1">{side}</div>}
       </div>
-      {aside ??
-        (row.unlockedAt !== null && (
-          <time className="whitespace-nowrap text-[12px] text-muted">
-            {t("dialog.unlockedOn", { date: formatDateTime(row.unlockedAt, locale) })}
-          </time>
-        ))}
     </div>
   );
 });
