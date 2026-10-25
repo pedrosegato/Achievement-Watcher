@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -60,6 +60,7 @@ pub struct AppState {
     pub meta_jobs: Mutex<Sender<MetaJob>>,
     pub log_guard: Mutex<Option<WorkerGuard>>,
     pub running: Mutex<RunningGames>,
+    pub game_pids: Mutex<HashMap<u32, u32>>,
     pub hotkey_error: Mutex<Option<String>>,
     pub video: VideoState,
     pub updater: UpdaterState,
@@ -95,6 +96,18 @@ impl AppState {
 
     pub fn running(&self) -> MutexGuard<'_, RunningGames> {
         lock(&self.running)
+    }
+
+    pub fn set_game_pids(&self, pids: &HashMap<u32, u32>) {
+        lock(&self.game_pids).clone_from(pids);
+    }
+
+    pub fn pids_of(&self, app_id: u32) -> HashSet<u32> {
+        lock(&self.game_pids)
+            .iter()
+            .filter(|(_, id)| **id == app_id)
+            .map(|(pid, _)| *pid)
+            .collect()
     }
 
     pub fn flush_logs(&self) {
@@ -282,6 +295,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         meta_jobs: Mutex::new(meta_tx),
         log_guard: Mutex::new(log_guard),
         running: Mutex::new(RunningGames::new()),
+        game_pids: Mutex::new(HashMap::new()),
         hotkey_error: Mutex::new(None),
         video: VideoState::default(),
         updater: UpdaterState::default(),

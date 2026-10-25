@@ -27,7 +27,7 @@ tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["fmt", "env-filter"] }
 ureq = "3.5.0"
-xcap = "0.9.8"
+xcap = { version = "0.9.8", features = ["wgc"] }
 zip = { version = "9.1.0", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]

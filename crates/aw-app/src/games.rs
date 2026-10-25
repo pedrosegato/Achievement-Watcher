@@ -81,6 +81,7 @@ pub fn run_process_monitor(app: AppHandle) {
             }
         }
 
+        state.set_game_pids(&by_pid);
         flush(&state, now);
         if changed {
             state.with_watcher(|w| w.request_full_sync());

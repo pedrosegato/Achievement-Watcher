@@ -371,10 +371,15 @@ fn show_one(
                 .map(|d| shot::default_capture_root(&d))
         });
         if let Some(root) = root {
-            match shot::capture(&root, &request.game, &request.display_name) {
-                Ok(path) => tracing::info!("screenshot saved to {}", path.display()),
-                Err(error) => tracing::warn!("screenshot failed: {error}"),
-            }
+            let game = request.game.clone();
+            let achievement = request.display_name.clone();
+            let pids = app.state::<AppState>().pids_of(request.app_id);
+            shot::later(shot::CAPTURE_DELAY, move || {
+                match shot::capture(&root, &game, &achievement, &pids) {
+                    Ok(path) => tracing::info!("screenshot saved to {}", path.display()),
+                    Err(error) => tracing::warn!("screenshot failed: {error}"),
+                }
+            });
         }
     }
     if settings.sound
