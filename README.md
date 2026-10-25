@@ -1,144 +1,100 @@
-> **⚠️ PROJECT NO LONGER MAINTAINED**  
-> This repository is no longer actively supported or updated. Feel free to fork it or hit me up if you need anything!
+# Achievement Watcher
 
-# 🔶 Achievement Watcher Fork
+Achievement notifications for Steam games running on emulators, rebuilt from scratch with Rust and Tauri.
 
-> [!IMPORTANT]
-> This fork is maintained by **Darktakayanagi** and adds personal improvements and new features on top of the original Achievement Watcher by [Xan105](https://github.com/xan105/Achievement-Watcher).
->
-> This fork is not a takeover, replacement, or official continuation of the original project. It is intended for public use under the LGPL-3.0 license.
+Install it, forget about it: on first start it finds every game and achievement already on your PC, sits in the tray, starts with Windows, and shows an animated popup with sound and a screenshot the moment you unlock something. No API key, no folders to configure, no extra downloads.
 
-## Notable Changes
+> Remake of [Achievement Watcher](https://github.com/xan105/Achievement-Watcher) by Xan105 and the [2.x fork](https://github.com/darktakayanagi/Achievement-Watcher) by Darktakayanagi. Not affiliated with Valve or any emulator.
 
-- Steam API key no longer required
-- Play button to run games from within the app
-- video souvenir now captures also the moments before triggering an achievement, possible with OBS Studio (developed by the OBS Project & licensed under the GNU GPL v2. [Source code](https://github.com/obsproject/obs-studio))
-- Chromium Notifications (developed by [@PSerban93](https://github.com/PSerban93))
-- Support for GOG/EPIC/UPLAY games
-- Support for more Steam emus
+## Features
 
-### **Planed Features**
+- **Automatic detection** of achievement files in emulator folders, Steam libraries, your own game folders and the folder of any game you open.
+- **Real time**: file-system events with debounce plus a periodic safety check; an unlock becomes a popup in under a second.
+- **No popup flood**: the first start imports everything silently and shows one summary; unlocks older than a few minutes are imported quietly.
+- **Rare and platinum**: achievements owned by fewer than 10% of players play the rare sound, and the one that completes a game plays the platinum sound. Styles change colour for both.
+- **Popup styles** (Default, Xbox One, Xbox 360, PlayStation 5 and PlayStation 4) in plain HTML/CSS/JS. Styles from Achievement Watcher 2.x still work when dropped in the styles folder.
+- **Sound packs**: a folder with `unlock`, `rare` and `platinum` files, or a single audio file.
+- **Progress popups** when a tracked achievement moves forward.
+- **Overlay** with the current game's achievements, toggled with `Ctrl+Shift+A`.
+- **Playtime** and "playing now", from the games running on your PC.
+- **Steam client achievements** in the same library (no popup by default, Steam already shows one).
+- **Screenshots** to `Pictures\<Game>\<Achievement>.png` and optional **video clips** of the moments before an unlock (ffmpeg is downloaded only if you turn it on).
+- **English and Portuguese** interface, automatic updates, and a diagnostics page with a one-click export.
+- **Offline friendly**: names, descriptions and icons come from Steam's public API without a key and are cached on disk.
 
-- Support for RetroAchievements (From Atari 2600 to PlayStation 2, and everything in between.)
-- Support for PS4 and Xbox360
-- Controller UI Navigation
+## Supported emulators
 
-## Features Overview
+| Emulator | Where it looks |
+|---|---|
+| OnlineFix | `Public\Documents\OnlineFix\<appid>` |
+| Goldberg / GSE (gbe_fork) | `%APPDATA%\Goldberg SteamEmu Saves`, `%APPDATA%\GSE Saves`, `steam_settings` inside the game folder |
+| CODEX / RUNE | `Public\Documents\Steam\{CODEX,RUNE}`, `%APPDATA%\Steam\CODEX` |
+| EMPRESS | `%APPDATA%\EMPRESS`, `Public\Documents\EMPRESS` |
+| RLD! / 3DM | `%PROGRAMDATA%\Steam\*\<appid>\stats`, `%PROGRAMDATA%\RLD!` |
+| SKIDROW / Hoodlum | `Documents\{SKIDROW,Player}`, `%LOCALAPPDATA%\SKIDROW` |
+| CreamAPI | `%APPDATA%\CreamAPI` |
+| TENOKE | `SteamData\user_stats.ini` inside the game folder |
+| RAZOR1911 | `%APPDATA%\.1911\<appid>\achievement` |
+| SmartSteamEmu | `%APPDATA%\SmartSteamEmu\<appid>\stats.bin` |
+| ALI213, Hoodlum, DARKSiDERS, Catherine, 3DM | marker files inside the game folder |
+| Steam client | `Steam\appcache\stats` |
 
-(WIP - Video here)
+## Install
 
-<hr />
-<hr />
+Download `Achievement Watcher_<version>_x64-setup.exe` from the releases page and run it. It installs for the current user, no admin rights needed. Windows 10 22H2 or Windows 11.
 
-# Original README
+Popups show over borderless and windowed games. Exclusive fullscreen hides any overlay that is not injected into the game.
 
-**⚠️ NB: The cache server was shutdown over a year ago.<br />
-You need a Steam Web API key for the app to be able to fetch data from Steam.<br />
-You can acquire one [by filling out this form](https://steamcommunity.com/dev/apikey).<br />
-Enter your key in `Settings > Advanced`.**
+## Custom styles and sounds
 
-<hr />
+Settings has **Open styles folder** and **Open sounds folder** buttons (both live in `%APPDATA%\io.github.pedrosegato.achievementwatcher`).
 
-A sexy achievement file parser with real-time notification, automatic screenshot and playtime tracking.<br />
-View every achievement earned on your PC whether it's coming from Steam, a Steam emulator, and more.<br />
-To see the full list of what this app can import please see the [**Wiki/Compatibility**](https://github.com/xan105/Achievement-Watcher/wiki/Compatibility).
+A style is a folder with an `index.html` and a `preset.json`:
 
-<table >
-<tr>
-<td align="left"><img src="https://github.com/xan105/Achievement-Watcher/raw/1.x/screenshot/home.png" width="400px"></td>
-<td align="left"><img src="https://github.com/xan105/Achievement-Watcher/raw/1.x/screenshot/ach_view.png" width="400px"></td>
-</tr>
-</table>
-
-The original idea behind this app was that some steam emulators generate a text file where your unlocked achievements are stored.
-But they aren't very friendly to know which is which, here is an example :
-
-```ini
-[NEW_ACHIEVEMENT_1_1]
-Achieved=1
-CurProgress=0
-MaxProgress=0
-UnlockTime=0000000000
-[SteamAchievements]
-00000=NEW_ACHIEVEMENT_1_1
-Count=1
+```json
+{ "name": "My style", "author": "me", "version": "1.0.0", "width": 440, "height": 116, "duration": 6.5 }
 ```
 
-So which achievement is NEW_ACHIEVEMENT_1_1 ? You'll have to ask the steam API or look online in a site like the steamdb to find out.
-So let's just do that automagically :)
+The page receives each achievement through `window.api.onNotification(cb)` with `{ game, displayName, description, iconPath, scale, duration, position }`. Scripts must be inside the style folder; anything loaded from the internet is blocked.
 
-# Notification on achievement unlocking
+## Releases and updates
 
-Not as sexy as a directX Overlay but it's the next best thing.<br />
-Display a notification when you unlock an achievement via<br />
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds a signed installer and a draft release with `latest.json`. Publishing the release makes it available to the in-app updater. The workflow needs the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
-- [Toast notification](https://github.com/xan105/Achievement-Watcher/wiki/Toast-notification) (Windows 8 / 10)
-- [Websocket](https://github.com/xan105/Achievement-Watcher/wiki/Websocket-Notification-'API') (Usage example: Twitch overlay)
-- [GNTP (Growl)](<https://github.com/xan105/Achievement-Watcher/wiki/GNTP-(Growl-Notification-Transport-Protocol)>) (Recommended for Windows 7)
+## Build from source
 
-⚠️ **Please verify your system settings for this to work properly**. [More info](https://github.com/xan105/Achievement-Watcher/wiki/Toast-notification#windows-settings)<br />
-You can test notification in Settings > Debug to make sure your system is correctly configured or seems to be.<br />
-There is a lot of things to check so make sure to have a look at the [wiki](https://github.com/xan105/Achievement-Watcher/wiki/Notification-%22Not-Working%22) before asking for help.
+Requirements: stable Rust, Node 24 and pnpm 12.
 
-<p align="center">
-  <img src="https://github.com/xan105/Achievement-Watcher/raw/1.x/screenshot/live.gif">
-</p>
-
-📸 If you have enabled the _souvenir_ option(s) then a screenshot and/or video will be taken when you unlock an achievement.<br />
-
-# 📖 Wiki and troubleshoot
-
-There is a lot to say about this app. So for more info, configuration, troubleshoot, common issues etc ...<br />
-Please kindly see the [Wiki](https://github.com/xan105/Achievement-Watcher/wiki), thank you.
-
-# Translation Help
-
-I do my best to translate everything for every supported language by Steam, but it's rather difficult and I don't speak that much languages.<br />
-Fluent in another language ? Any help to add/modify/improve would be greatly appreciated.
-
-More details [here](https://github.com/xan105/achievement-watcher/tree/1.x/app/locale)
-
-# How to build
-
-### Prequisites:
-
-You will need Node.js 14.x in x64 with NPM installed.<br/>
-Innosetup 5 unicode with preprocessor and [Inno Download Plugin](https://mitrichsoftware.wordpress.com/inno-setup-tools/inno-download-plugin/) (building the setup)<br/>
-
-For Node.js you globally need asar and json :<br/>
-
-```
-npm install -g asar json
+```bash
+pnpm install
+pnpm tauri dev
+pnpm tauri build
 ```
 
-There will be some native_module to compile so you'll need :<br/>
-VS2017 / C++ build tools, Python ~2.7~ 3.x (node-gyp), and the Windows SDK **10.0.17134.0** (1803 Redstone 4)
+The installer lands in `target/release/bundle/nsis/`.
 
-### Build:
+The detection core can be tested without the app:
 
-Install `node_modules` folders with `npm install.cmd`<br/>
-or do it yourself with `npm ci` in `/app`, `/service/updater` and `/service/watchdog`.<br/>
-Use `buildme.cmd` in the root folder to build.
+```bash
+cargo run -p aw-cli -- scan
+cargo run -p aw-cli -- scan --games-root "C:\Games"
+cargo run -p aw-cli -- watch
+```
 
-### Notes:
+Checks: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `pnpm check`.
 
-- Most of the native code is now shipped as prebuilt binaries. If you want to compile them yourself I invit you to check out their corresponding repo.<br/>
-  NB: Golang cgo requires a gcc compiler installed and set in PATH (recommended : http://tdm-gcc.tdragon.net/download).
+## Repository layout
 
-- Innosetup is expected to be installed in `C:\Program Files (x86)\Inno Setup 5` if that is not the case then update `buildme.cmd` with the correct path.
+```
+crates/aw-core            detection core: discovery, parsers, watcher, SQLite state, Steam metadata
+crates/aw-cli             command line tool for the core
+crates/aw-app             desktop app (Tauri): tray, popup window, sound, screenshot, commands
+crates/aw-app/resources   built-in popup styles and sound packs
+ui                        main window (Vite + React + TypeScript)
+```
 
-- If NPM gives you some trouble, try to delete every `package-lock.json`.
+All Rust lives in `crates/` (one Cargo workspace) and the web front end in `ui/` (one pnpm workspace). `target/` and `node_modules/` are created by `cargo` and `pnpm` and are not part of the repository.
 
-# Legal
+## License
 
-⚠️ **Software provided here is purely for informational purposes and does not provide nor encourage illegal access to copyrighted material.**<br />
-
-Software provided here is to be use at your own risk. This is provided as is without any express or implied warranty.<br />
-In no event or circumstances will the authors or company be held liable for any damage to yourself or your computer that may arise from the installation or use of the free software aswell as his documentation that is provided on this website.<br />
-And for anything that may occur as a result of your use, or inability to use the materials provided via this website.<br />
-
-Software provided here is not affiliated nor associated with any cracking scene groups.<br />
-
-Software provided here is not affiliated nor associated with Steam, © Valve Corporation, Uplay, © Ubisoft and data from theirs API is provided as is without any express or implied warranty.<br />
-
-Other trademarks, copyright are the property of their respective owners. No copyright or trademark infringement is intended by using third-party resources. Except where otherwise specified, the contents of this project is subject to copyright.<br />
+[LGPL-3.0-only](./LICENSE). Credits and third-party notices in [NOTICE.md](./NOTICE.md).
