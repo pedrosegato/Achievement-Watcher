@@ -265,6 +265,40 @@ html.overlay body {
   padding-left: 24px;
 }
 
+.setting-group-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-collapse) var(--ease-smooth);
+}
+
+.setting-group[data-state="off"] .setting-group-body {
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-collapse) var(--ease-inout);
+}
+
+.setting-group .collapse-head {
+  padding: 12px 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.setting-group .collapse-head:hover {
+  color: var(--text);
+}
+
+.setting-group .collapse-rule {
+  background: none;
+}
+
+.setting-group .collapse-row:first-child > * {
+  border-top: 1px solid var(--line);
+}
+
+.setting-group .collapse-row:last-child > * {
+  border-bottom-width: 0;
+}
+
 .spinning {
   animation: spin-turn var(--dur-spin) linear infinite;
 }
@@ -272,6 +306,10 @@ html.overlay body {
 @media (prefers-reduced-motion: reduce) {
   .spinning {
     animation: none;
+  }
+
+  .setting-group-body {
+    transition: none;
   }
 }
 

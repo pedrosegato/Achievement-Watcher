@@ -2,15 +2,10 @@ import { useState } from "react";
 import { Slider } from "../../components/ui/slider";
 import { RANGES } from "../../constants";
 import { useI18n } from "../../i18n/useI18n";
-import { clipSizeMb } from "../../lib/video";
-import type { VideoFormat, VideoQuality } from "../../types/domain";
 
 interface ClipTimelineProps {
   before: number;
   after: number;
-  fps: number;
-  quality: VideoQuality;
-  format: VideoFormat;
   onCommit: (before: number, after: number) => void;
 }
 
@@ -26,14 +21,20 @@ function clampWindow([start, end]: number[], fallback: Window): Window {
   return [from, to];
 }
 
-export function ClipTimeline({ before, after, fps, quality, format, onCommit }: ClipTimelineProps) {
+export function ClipTimeline({ before, after, onCommit }: ClipTimelineProps) {
   const { t } = useI18n();
   const saved: Window = [-before, after];
   const [draft, setDraft] = useState<Window | null>(null);
   const [start, end] = draft ?? saved;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5 border-line border-b py-3.5">
+      <div className="mb-1 flex items-baseline justify-between gap-4">
+        <span className="font-semibold text-[14px]">{t("settings.clipLength")}</span>
+        <span className="text-[13px] text-muted tabular-nums">
+          {t("settings.clipTotal", { n: end - start })}
+        </span>
+      </div>
       <div className="relative h-4 text-[12px] text-muted">
         <span className="absolute -translate-x-1/2" style={{ left: UNLOCK_AT }}>
           {t("settings.clipUnlock")}
@@ -58,13 +59,10 @@ export function ClipTimeline({ before, after, fps, quality, format, onCommit }: 
           style={{ left: UNLOCK_AT }}
         />
       </div>
-      <div className="flex justify-between text-[12.5px] text-muted">
+      <div className="flex justify-between text-[12.5px] text-muted tabular-nums">
         <span>{t("settings.clipBefore", { n: -start })}</span>
         <span>{t("settings.clipAfter", { n: end })}</span>
       </div>
-      <span className="text-[12.5px] text-dim">
-        {t("settings.clipSize", { mb: clipSizeMb(end - start, fps, quality, format) })}
-      </span>
     </div>
   );
 }
