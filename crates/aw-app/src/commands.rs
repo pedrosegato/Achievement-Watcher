@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use aw_core::discovery::appinfo::{LogoPosition, read_logo_position};
@@ -184,15 +184,18 @@ pub fn order_achievements(mut rows: Vec<AchievementView>) -> Vec<AchievementView
     rows
 }
 
-fn icon_url(state: &AppState, app_id: u32, file: Option<&str>) -> Option<String> {
+fn cached_icons(cache_dir: &std::path::Path, app_id: u32) -> HashSet<String> {
+    std::fs::read_dir(cache_dir.join("icons").join(app_id.to_string()))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .collect()
+}
+
+fn icon_link(cached: &HashSet<String>, app_id: u32, file: Option<&str>) -> Option<String> {
     let file = file?;
-    let local = state
-        .paths
-        .cache_dir
-        .join("icons")
-        .join(app_id.to_string())
-        .join(file);
-    Some(if local.is_file() {
+    Some(if cached.contains(file) {
         format!("{PROTOCOL_ORIGIN}/icon/{app_id}/{file}")
     } else {
         format!("{COMMUNITY}/{app_id}/{file}")
@@ -200,19 +203,23 @@ fn icon_url(state: &AppState, app_id: u32, file: Option<&str>) -> Option<String>
 }
 
 #[tauri::command]
-pub fn list_games(state: State<'_, AppState>) -> Result<Vec<GameRow>, String> {
+pub async fn list_games(state: State<'_, AppState>) -> Result<Vec<GameRow>, String> {
     crate::games::refresh_steam_playtime(&state);
     let overview = state.store().games_overview().map_err(|e| e.to_string())?;
+    let mut icons: HashMap<u32, HashSet<String>> = HashMap::new();
     let recent: Vec<(u32, RecentIcon)> = state
         .store()
         .recent_unlocks(RECENT_ICONS)
         .map_err(|e| e.to_string())?
         .into_iter()
         .filter_map(|(app_id, v)| {
+            let cached = icons
+                .entry(app_id)
+                .or_insert_with(|| cached_icons(&state.paths.cache_dir, app_id));
             Some((
                 app_id,
                 RecentIcon {
-                    icon_url: icon_url(&state, app_id, v.icon.as_deref()),
+                    icon_url: icon_link(cached, app_id, v.icon.as_deref()),
                     display_name: v.display_name.unwrap_or_else(|| v.api_name.clone()),
                     description: v.description.unwrap_or_default(),
                     percent: v.percent,
@@ -238,12 +245,12 @@ pub fn list_games(state: State<'_, AppState>) -> Result<Vec<GameRow>, String> {
 }
 
 #[tauri::command]
-pub fn game_detail(state: State<'_, AppState>, app_id: u32) -> Result<GameDetail, String> {
+pub async fn game_detail(state: State<'_, AppState>, app_id: u32) -> Result<GameDetail, String> {
     detail_for(&state, app_id)
 }
 
 #[tauri::command]
-pub fn overlay_game(state: State<'_, AppState>) -> Result<Option<GameDetail>, String> {
+pub async fn overlay_game(state: State<'_, AppState>) -> Result<Option<GameDetail>, String> {
     state
         .current_game()
         .map(|app_id| detail_for(&state, app_id))
@@ -303,11 +310,7 @@ pub fn toggle_overlay(app: AppHandle) {
 fn detail_for(state: &AppState, app_id: u32) -> Result<GameDetail, String> {
     let store = state.store();
     let name = display_name(app_id, store.game_name(app_id).map_err(|e| e.to_string())?);
-    let game = store
-        .games_overview()
-        .map_err(|e| e.to_string())?
-        .into_iter()
-        .find(|g| g.app_id == app_id);
+    let game = store.game_overview(app_id).map_err(|e| e.to_string())?;
     let playtime_seconds = game.as_ref().map_or(0, |g| g.playtime_seconds);
     let origin = game
         .as_ref()
@@ -317,11 +320,16 @@ fn detail_for(state: &AppState, app_id: u32) -> Result<GameDetail, String> {
     let views = order_achievements(store.game_achievements(app_id).map_err(|e| e.to_string())?);
     drop(store);
     let known = views.iter().filter(|v| v.display_name.is_some()).count();
+    let cached = cached_icons(&state.paths.cache_dir, app_id);
     let achievements: Vec<AchievementRow> = views
         .into_iter()
         .map(|v| AchievementRow {
-            icon_url: icon_url(state, app_id, v.icon.as_deref().or(v.icon_gray.as_deref())),
-            icon_gray_url: icon_url(state, app_id, v.icon_gray.as_deref()),
+            icon_url: icon_link(
+                &cached,
+                app_id,
+                v.icon.as_deref().or(v.icon_gray.as_deref()),
+            ),
+            icon_gray_url: icon_link(&cached, app_id, v.icon_gray.as_deref()),
             playtime_seconds: v.playtime_seconds,
             display_name: v.display_name.unwrap_or_else(|| v.api_name.clone()),
             description: v.description.unwrap_or_default(),
@@ -511,6 +519,25 @@ pub fn open_path(path: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn icons_come_from_the_cache_listing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("icons").join("7");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("a.jpg"), b"x").unwrap();
+        let cached = cached_icons(tmp.path(), 7);
+        assert_eq!(
+            icon_link(&cached, 7, Some("a.jpg")).as_deref(),
+            Some("http://aw.localhost/icon/7/a.jpg")
+        );
+        assert_eq!(
+            icon_link(&cached, 7, Some("b.jpg")),
+            Some(format!("{COMMUNITY}/7/b.jpg"))
+        );
+        assert_eq!(icon_link(&cached, 7, None), None);
+        assert!(cached_icons(tmp.path(), 8).is_empty());
+    }
 
     fn view(name: &str, percent: Option<f64>) -> AchievementView {
         AchievementView {

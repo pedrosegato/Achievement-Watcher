@@ -464,6 +464,14 @@ impl Store {
     }
 
     pub fn games_overview(&self) -> StoreResult<Vec<GameOverview>> {
+        self.overview_rows(None)
+    }
+
+    pub fn game_overview(&self, app_id: u32) -> StoreResult<Option<GameOverview>> {
+        Ok(self.overview_rows(Some(app_id))?.into_iter().next())
+    }
+
+    fn overview_rows(&self, only: Option<u32>) -> StoreResult<Vec<GameOverview>> {
         let mut stmt = self.conn.prepare(
             "WITH counted AS (
                  SELECT u.app_id, u.unlocked_at FROM unlocks u
@@ -485,9 +493,10 @@ impl Store {
                     NOT EXISTS (SELECT 1 FROM files f WHERE f.app_id = g.app_id AND f.source_id <> 'steam')
                     AND (EXISTS (SELECT 1 FROM files f WHERE f.app_id = g.app_id AND f.source_id = 'steam')
                          OR EXISTS (SELECT 1 FROM steam_playtime sp WHERE sp.app_id = g.app_id))
-             FROM games g",
+             FROM games g
+             WHERE ?1 IS NULL OR g.app_id = ?1",
         )?;
-        let rows = stmt.query_map([], |row| {
+        let rows = stmt.query_map(params![only], |row| {
             let unlocked: u32 = row.get(2)?;
             let total: u32 = row.get(3)?;
             let latest: Option<String> = row.get(7)?;
@@ -786,6 +795,18 @@ mod tests {
         g.sort_by_key(|o| o.app_id);
         assert_eq!(g[0].origin.as_deref(), Some("codex_public"));
         assert_eq!(g[1].origin, None);
+    }
+
+    #[test]
+    fn one_game_overview_matches_the_full_list() {
+        let s = Store::in_memory().unwrap();
+        schema(&s, 5, 3);
+        schema(&s, 6, 2);
+        s.record_unlock(5, "ACH00", 10, 10, "goldberg").unwrap();
+        let all = s.games_overview().unwrap();
+        let five = s.game_overview(5).unwrap().unwrap();
+        assert_eq!(Some(&five), all.iter().find(|g| g.app_id == 5));
+        assert!(s.game_overview(99).unwrap().is_none());
     }
 
     #[test]
