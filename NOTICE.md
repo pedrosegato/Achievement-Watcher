@@ -13,5 +13,6 @@ Achievement Watcher is licensed under the [LGPL-3.0 License](./LICENSE).
 - **Chromium Notifications** – popup styles from [@PSerban93](https://github.com/PSerban93)
 - **Notification sounds** – from the original Achievement Watcher, except the Xbox ones: Xbox Game Bar 2026 sounds and animation, © Microsoft, via XCT.live
 - **PlayStation styles** – SST typeface, PlayStation logo and trophy art, © Sony Interactive Entertainment
+- **Xbox 360 style** – based on the [Xbox 360 Achievement pen](https://codepen.io/UntitledCoder/pen/VYjyxqz) by UntitledCoder; trophy icon from [Font Awesome Free](https://fontawesome.com/license/free), CC BY 4.0; Xbox logo, © Microsoft
 - **Schibsted Grotesk** – SIL Open Font License 1.1, see `ui/public/fonts/OFL.txt`
 - Rust and npm libraries are used under their own licenses (MIT, Apache-2.0 and compatible)
