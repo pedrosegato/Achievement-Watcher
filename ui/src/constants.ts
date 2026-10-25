@@ -14,6 +14,7 @@ export const ROOT_ELEMENT_ID = "root";
 export const OVERLAY_CLASS = "overlay";
 export const PROTOCOL_ORIGIN = "http://aw.localhost";
 export const DEFAULT_PRESET = "aw-minimal";
+export const DEFAULT_SOUND_PACK = "achievement-watcher";
 export const POPUP_MARGIN = 48;
 export const SCREEN = { width: 1920, height: 1080 } as const;
 

@@ -93,6 +93,7 @@
   "settings.clipUnlock": "Unlock",
   "settings.credits": "Fork of the original Achievement Watcher by xan105. LGPL 3.0 license.",
   "settings.customPack": "{name} (yours)",
+  "settings.defaultPack": "Default",
   "settings.dataFolder": "Data folder",
   "settings.defaultShots": "Pictures\\AchievementWatcher",
   "settings.defaultStyle": "Default",

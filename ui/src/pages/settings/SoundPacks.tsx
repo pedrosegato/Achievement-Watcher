@@ -8,6 +8,7 @@ import { useI18n } from "../../i18n/useI18n";
 import { cn } from "../../lib/cn";
 import { api } from "../../lib/commands";
 import { queries } from "../../lib/queries";
+import { packName } from "../../lib/sounds";
 import type { SoundEvent, SoundPack } from "../../types/domain";
 
 interface SoundPacksProps {
@@ -72,9 +73,7 @@ export function SoundPacks({ selected, onSelect }: SoundPacksProps) {
               }}
             />
             <span className="grid size-4 place-items-center rounded-full border-[1.5px] border-dim peer-checked:border-text peer-checked:after:size-2 peer-checked:after:rounded-full peer-checked:after:bg-text peer-checked:after:content-['']" />
-            <span className="font-semibold text-[13.5px]">
-              {pack.builtin ? pack.name : t("settings.customPack", { name: pack.name })}
-            </span>
+            <span className="font-semibold text-[13.5px]">{packName(pack, t)}</span>
           </label>
           <span className="relative z-1 flex gap-1">
             {packEvents(pack).map((event) => {
