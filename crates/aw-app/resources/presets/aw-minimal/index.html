@@ -132,10 +132,11 @@ body { font-family: "Schibsted Grotesk", system-ui, sans-serif; -webkit-font-smo
 @keyframes mn-coin { 0% { transform: perspective(220px) rotateY(0) scale(1); } 45% { transform: perspective(220px) rotateY(400deg) scale(1.38); } 100% { transform: perspective(220px) rotateY(720deg) scale(1); } }
 .mn[data-kind="platinum"].ignite .r-icon.rare::before { inset: -80%; transition: opacity 500ms ease, scale 1100ms var(--ease-smooth); }
 .mn-art {
-  position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: center / cover no-repeat; opacity: 0;
-  -webkit-mask: linear-gradient(90deg, transparent 30%, #000 100%); mask: linear-gradient(90deg, transparent 30%, #000 100%);
+  position: absolute; inset: 0; z-index: -1; border-radius: inherit; opacity: .22;
+  background: left center / calc(var(--w-plat) - 2px) auto no-repeat;
+  -webkit-mask: linear-gradient(90deg, rgba(0, 0, 0, .45), #000 70%) left / calc(var(--w-plat) - 2px) 100% no-repeat;
+  mask: linear-gradient(90deg, rgba(0, 0, 0, .45), #000 70%) left / calc(var(--w-plat) - 2px) 100% no-repeat;
 }
-.mn[data-kind="platinum"].open .mn-art { opacity: .22; transition: opacity 900ms ease 300ms; }
 .mn[data-kind="platinum"] .mn-card::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: radial-gradient(130% 75% at 50% 130%, var(--plat-glow), transparent 62%); opacity: 0; }
 .mn[data-kind="platinum"].open .mn-card::after { opacity: 1; transition: opacity 900ms ease 300ms; }
 .mn[data-kind="platinum"] .mn-card::before {
