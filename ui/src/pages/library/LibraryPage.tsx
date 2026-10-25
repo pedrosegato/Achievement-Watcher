@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { ErrorAlert } from "../../components/ErrorAlert";
 import { Icon } from "../../components/Icon";
 import { Segmented } from "../../components/Segmented";
@@ -56,7 +56,13 @@ const SCOPE_LABELS: Record<LibraryScope, Key> = {
 const isSort = (value: string): value is GameSort =>
   (GAME_SORTS as readonly string[]).includes(value);
 
-export function LibraryPage({ query, onSearch, scanning, onRescan, onOpen }: LibraryPageProps) {
+export const LibraryPage = memo(function LibraryPage({
+  query,
+  onSearch,
+  scanning,
+  onRescan,
+  onOpen,
+}: LibraryPageProps) {
   const { t } = useI18n();
   const busy = scanning !== null;
   const rescanLabel = busy ? t("library.scanning", { pct: scanning }) : t("library.rescan");
@@ -72,27 +78,33 @@ export function LibraryPage({ query, onSearch, scanning, onRescan, onOpen }: Lib
     count: counts[value],
   }));
 
-  const visible = useMemo(() => {
+  const ordered = useMemo(() => sortGames(games ?? [], sort), [games, sort]);
+  const shown = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
-    const matches = (games ?? []).filter(
-      (game) =>
-        inScope(game, activeScope) &&
-        (!needle ||
-          game.name.toLocaleLowerCase().includes(needle) ||
-          String(game.appId) === needle),
+    return new Set(
+      (games ?? [])
+        .filter(
+          (game) =>
+            inScope(game, activeScope) &&
+            (!needle ||
+              game.name.toLocaleLowerCase().includes(needle) ||
+              String(game.appId) === needle),
+        )
+        .map((game) => game.appId),
     );
-    return sortGames(matches, sort);
-  }, [games, query, sort, activeScope]);
+  }, [games, query, activeScope]);
 
   let content = <LibrarySkeleton />;
   if (games?.length === 0) content = <LibraryEmpty onRescan={onRescan} scanning={scanning} />;
-  else if (games && visible.length === 0) {
+  else if (games && shown.size === 0) {
     content = <p className="py-10 text-center text-[13px] text-dim">{t("library.noMatch")}</p>;
   } else if (games) {
     content = (
       <div className="library-grid">
-        {visible.map((game) => (
-          <GameCard key={game.appId} game={game} onOpen={onOpen} />
+        {ordered.map((game) => (
+          <div key={game.appId} hidden={!shown.has(game.appId)} className="grid">
+            <GameCard game={game} onOpen={onOpen} />
+          </div>
         ))}
       </div>
     );
@@ -112,7 +124,7 @@ export function LibraryPage({ query, onSearch, scanning, onRescan, onOpen }: Lib
               onChange={setScope}
             />
           )}
-          {games && !mixed && <span className="text-[14px] text-dim">{visible.length}</span>}
+          {games && !mixed && <span className="text-[14px] text-dim">{shown.size}</span>}
         </div>
         <label className="flex h-8 w-[240px] items-center gap-2 rounded-card border border-line bg-surface px-2.5 text-[13px] text-dim focus-within:text-muted">
           <Icon name="search" size={16} />
@@ -153,4 +165,4 @@ export function LibraryPage({ query, onSearch, scanning, onRescan, onOpen }: Lib
       {content}
     </section>
   );
-}
+});

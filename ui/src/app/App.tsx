@@ -24,7 +24,10 @@ export function App() {
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]">
         <main
           inert={game !== null}
-          className={cn("col-start-1 row-start-1 overflow-y-auto", game !== null && "invisible")}
+          className={cn(
+            "col-start-1 row-start-1 overflow-y-auto",
+            game !== null && "invisible [content-visibility:hidden]",
+          )}
         >
           <div className="mx-auto max-w-[1440px] px-5 pt-5 pb-10">
             <LibraryPage

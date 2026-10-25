@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { memo } from "react";
 import { ArtImage } from "../../components/ArtImage";
 import { ArtTag } from "../../components/ArtTag";
 import { useI18n } from "../../i18n/useI18n";
@@ -14,7 +15,7 @@ interface GameCardProps {
   onOpen: (appId: number) => void;
 }
 
-export function GameCard({ game, onOpen }: GameCardProps) {
+export const GameCard = memo(function GameCard({ game, onOpen }: GameCardProps) {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
   const open = () => onOpen(game.appId);
@@ -70,4 +71,4 @@ export function GameCard({ game, onOpen }: GameCardProps) {
       </div>
     </article>
   );
-}
+});

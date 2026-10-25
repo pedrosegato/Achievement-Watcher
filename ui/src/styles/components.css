@@ -58,6 +58,18 @@ html.overlay body {
   gap: 14px;
 }
 
+.library-grid > div {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 288px;
+  overflow-clip-margin: 6px;
+}
+
+.game-card:not(:hover) .rare-icon::before,
+.game-card:not(:hover) .rare-icon::after,
+.game-card:not(:hover) .rare-rim {
+  animation-play-state: paused;
+}
+
 .game-card-platinum {
   background:
     radial-gradient(130% 70% at 50% 125%, var(--plat-glow), transparent 62%), var(--surface);
