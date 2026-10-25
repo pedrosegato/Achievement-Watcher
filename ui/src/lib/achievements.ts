@@ -8,6 +8,10 @@ interface DayGroup {
   items: AchievementRow[];
 }
 
+interface LimitedGroup extends DayGroup {
+  total: number;
+}
+
 interface LockedSplit {
   unlocked: AchievementRow[];
   locked: AchievementRow[];
@@ -44,6 +48,25 @@ export function groupByDay(rows: AchievementRow[]): DayGroup[] {
     else groups.set(key, { key, day: at, items: [row] });
   }
   return [...groups.values()];
+}
+
+export function limitRows(groups: DayGroup[], budget: number): LimitedGroup[] {
+  const limited: LimitedGroup[] = [];
+  let left = budget;
+  for (const group of groups) {
+    if (left <= 0) break;
+    const items = left >= group.items.length ? group.items : group.items.slice(0, left);
+    limited.push({ ...group, items, total: group.items.length });
+    left -= items.length;
+  }
+  return limited;
+}
+
+export function limitSplit(split: LockedSplit, budget: number): LockedSplit {
+  const unlocked = split.unlocked.slice(0, budget);
+  const locked = split.locked.slice(0, budget - unlocked.length);
+  const hidden = split.hidden.slice(0, budget - unlocked.length - locked.length);
+  return { unlocked, locked, hidden };
 }
 
 export function isRare(percent: number | null, threshold: number): boolean {

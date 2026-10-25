@@ -1,11 +1,13 @@
+import { useDeferredValue } from "react";
 import { useI18n } from "../../../i18n/useI18n";
-import { filterDialog, isRare, splitLocked } from "../../../lib/achievements";
-import { formatDateTime } from "../../../lib/format";
+import { filterDialog, isRare, limitSplit, splitLocked } from "../../../lib/achievements";
 import { useRareThreshold } from "../../../settings/useAppSettings";
 import type { AchievementFilter, AchievementRow } from "../../../types/domain";
 import { DialogRow } from "./DialogRow";
 import { HiddenRow } from "./HiddenRow";
 import type { HiddenAction } from "./hidden";
+
+const FIRST_PAINT_ROWS = 16;
 
 interface AchievementListProps {
   rows: AchievementRow[];
@@ -28,9 +30,13 @@ export function AchievementList({
   revealed,
   dispatch,
 }: AchievementListProps) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const threshold = useRareThreshold();
-  const groups = splitLocked(filterDialog(rows, filter, query, maskHidden), maskHidden);
+  const complete = useDeferredValue(true, false);
+  const groups = limitSplit(
+    splitLocked(filterDialog(rows, filter, query, maskHidden), maskHidden),
+    complete ? Number.POSITIVE_INFINITY : FIRST_PAINT_ROWS,
+  );
   const empty = groups.unlocked.length + groups.locked.length + groups.hidden.length === 0;
   const showTitles = filter === "all";
 
@@ -39,18 +45,7 @@ export function AchievementList({
       {empty && <p className="py-8 text-center text-[13px] text-dim">{t("dialog.empty")}</p>}
       {groups.unlocked.length > 0 && showTitles && <GroupTitle>{t("game.unlocked")}</GroupTitle>}
       {groups.unlocked.map((row) => (
-        <DialogRow
-          key={row.apiName}
-          row={row}
-          rare={isRare(row.percent, threshold)}
-          aside={
-            row.unlockedAt !== null && (
-              <time className="whitespace-nowrap text-[12px] text-muted">
-                {t("dialog.unlockedOn", { date: formatDateTime(row.unlockedAt, locale) })}
-              </time>
-            )
-          }
-        />
+        <DialogRow key={row.apiName} row={row} rare={isRare(row.percent, threshold)} />
       ))}
       {groups.locked.length > 0 && showTitles && <GroupTitle>{t("game.locked")}</GroupTitle>}
       {groups.locked.map((row) => (
@@ -62,8 +57,7 @@ export function AchievementList({
           key={row.apiName}
           row={row}
           revealed={revealed.has(row.apiName)}
-          onReveal={() => dispatch({ type: "reveal", apiName: row.apiName })}
-          onHide={() => dispatch({ type: "hide", apiName: row.apiName })}
+          dispatch={dispatch}
         />
       ))}
     </>

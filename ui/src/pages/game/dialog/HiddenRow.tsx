@@ -1,18 +1,21 @@
+import { memo } from "react";
 import { Icon } from "../../../components/Icon";
 import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../../i18n/useI18n";
 import type { AchievementRow } from "../../../types/domain";
 import { DialogRow } from "./DialogRow";
+import type { HiddenAction } from "./hidden";
 
 interface HiddenRowProps {
   row: AchievementRow;
   revealed: boolean;
-  onReveal: () => void;
-  onHide: () => void;
+  dispatch: (action: HiddenAction) => void;
 }
 
-export function HiddenRow({ row, revealed, onReveal, onHide }: HiddenRowProps) {
+export const HiddenRow = memo(function HiddenRow({ row, revealed, dispatch }: HiddenRowProps) {
   const { t } = useI18n();
+  const onReveal = () => dispatch({ type: "reveal", apiName: row.apiName });
+  const onHide = () => dispatch({ type: "hide", apiName: row.apiName });
   if (revealed) {
     return (
       <div className="reveal-in">
@@ -29,7 +32,7 @@ export function HiddenRow({ row, revealed, onReveal, onHide }: HiddenRowProps) {
     );
   }
   return (
-    <div className="flex items-center gap-3.5 rounded-card border border-line bg-surface px-3.5 py-2.5">
+    <div className="dialog-row flex items-center gap-3.5 rounded-card border border-line bg-surface px-3.5 py-2.5">
       <span className="grid size-10 flex-none place-items-center bg-surface-2 text-dim">
         <Icon name="eye-off" size={18} />
       </span>
@@ -43,4 +46,4 @@ export function HiddenRow({ row, revealed, onReveal, onHide }: HiddenRowProps) {
       </Button>
     </div>
   );
-}
+});

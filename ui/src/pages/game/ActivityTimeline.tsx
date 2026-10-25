@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { memo, useDeferredValue, useState } from "react";
 import { AchievementIcon } from "../../components/AchievementIcon";
 import { Collapsible } from "../../components/Collapsible";
 import { useI18n } from "../../i18n/useI18n";
-import { groupByDay, isRare } from "../../lib/achievements";
+import { groupByDay, isRare, limitRows } from "../../lib/achievements";
 import { formatDay } from "../../lib/format";
 import { useRareThreshold } from "../../settings/useAppSettings";
 import type { GameDetail } from "../../types/domain";
@@ -13,12 +13,17 @@ interface ActivityTimelineProps {
 }
 
 const PEEK = 8;
+const FIRST_PAINT_ROWS = 20;
 
-export function ActivityTimeline({ detail }: ActivityTimelineProps) {
+export const ActivityTimeline = memo(function ActivityTimeline({ detail }: ActivityTimelineProps) {
   const { t, locale } = useI18n();
   const threshold = useRareThreshold();
   const [closed, setClosed] = useState<ReadonlySet<string>>(() => new Set());
-  const groups = groupByDay(detail.achievements);
+  const complete = useDeferredValue(true, false);
+  const groups = limitRows(
+    groupByDay(detail.achievements),
+    complete ? Number.POSITIVE_INFINITY : FIRST_PAINT_ROWS,
+  );
   const toggle = (key: string) =>
     setClosed((current) => {
       const next = new Set(current);
@@ -38,9 +43,7 @@ export function ActivityTimeline({ detail }: ActivityTimelineProps) {
           onToggle={() => toggle(group.key)}
           header={formatDay(group.day, locale)}
           count={
-            group.items.length === 1
-              ? t("game.dayCountOne")
-              : t("game.dayCountOther", { n: group.items.length })
+            group.total === 1 ? t("game.dayCountOne") : t("game.dayCountOther", { n: group.total })
           }
           peek={group.items
             .slice(0, PEEK)
@@ -60,4 +63,4 @@ export function ActivityTimeline({ detail }: ActivityTimelineProps) {
       ))}
     </section>
   );
-}
+});

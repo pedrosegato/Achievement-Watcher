@@ -5,6 +5,8 @@ import {
   filterDialog,
   groupByDay,
   isRare,
+  limitRows,
+  limitSplit,
   rarest,
   splitLocked,
 } from "./achievements";
@@ -51,6 +53,27 @@ describe("groupByDay", () => {
   });
 });
 
+describe("limitRows", () => {
+  it("keeps the newest rows up to the budget and the full day counts", () => {
+    const groups = limitRows(groupByDay(timeline), 4);
+    expect(groups.map((group) => group.items.map((item) => item.apiName))).toEqual([
+      ["B", "A"],
+      ["C"],
+      ["D4"],
+    ]);
+    expect(groups.map((group) => group.total)).toEqual([2, 1, 5]);
+  });
+
+  it("drops the days past the budget", () => {
+    expect(limitRows(groupByDay(timeline), 2)).toHaveLength(1);
+  });
+
+  it("keeps everything when the budget is unlimited", () => {
+    const groups = limitRows(groupByDay(timeline), Number.POSITIVE_INFINITY);
+    expect(groups.map((group) => group.items.length)).toEqual([2, 1, 5]);
+  });
+});
+
 describe("splitLocked", () => {
   it("separates masked hidden achievements", () => {
     const split = splitLocked(dialog, true);
@@ -63,6 +86,20 @@ describe("splitLocked", () => {
     const split = splitLocked(dialog, false);
     expect(split.hidden).toEqual([]);
     expect(split.locked).toHaveLength(3);
+  });
+});
+
+describe("limitSplit", () => {
+  it("fills the budget from unlocked, then locked, then hidden", () => {
+    const split = limitSplit(splitLocked(dialog, true), 3);
+    expect(split.unlocked.map((item) => item.apiName)).toEqual(["Speedrunner", "Secret"]);
+    expect(split.locked.map((item) => item.apiName)).toEqual(["Collector"]);
+    expect(split.hidden).toEqual([]);
+  });
+
+  it("keeps every row when the budget is unlimited", () => {
+    const split = limitSplit(splitLocked(dialog, true), Number.POSITIVE_INFINITY);
+    expect(split.hidden).toHaveLength(2);
   });
 });
 

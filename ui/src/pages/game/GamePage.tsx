@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ErrorAlert } from "../../components/ErrorAlert";
 import { errorMessage } from "../../lib/commands";
 import { queries } from "../../lib/queries";
@@ -20,10 +20,10 @@ export function GamePage({ appId, onBack }: GamePageProps) {
   const { data: detail, error } = useQuery(queries.game(appId));
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filter, setFilter] = useState<AchievementFilter>("all");
-  const openDialog = (next: AchievementFilter) => {
+  const openDialog = useCallback((next: AchievementFilter) => {
     setFilter(next);
     setDialogOpen(true);
-  };
+  }, []);
 
   if (!detail) {
     return error ? (

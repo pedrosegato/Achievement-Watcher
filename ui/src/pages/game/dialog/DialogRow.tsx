@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { AchievementIcon } from "../../../components/AchievementIcon";
 import { useI18n } from "../../../i18n/useI18n";
 import { cn } from "../../../lib/cn";
-import { formatPercent } from "../../../lib/format";
+import { formatDateTime, formatPercent } from "../../../lib/format";
 import type { AchievementRow } from "../../../types/domain";
 
 interface DialogRowProps {
@@ -12,10 +12,15 @@ interface DialogRowProps {
   aside?: ReactNode;
 }
 
-export function DialogRow({ row, rare = false, locked = false, aside }: DialogRowProps) {
+export const DialogRow = memo(function DialogRow({
+  row,
+  rare = false,
+  locked = false,
+  aside,
+}: DialogRowProps) {
   const { t, locale } = useI18n();
   return (
-    <div className="flex items-center gap-3.5 rounded-card border border-line bg-surface px-3.5 py-2.5">
+    <div className="dialog-row flex items-center gap-3.5 rounded-card border border-line bg-surface px-3.5 py-2.5">
       <AchievementIcon
         src={locked ? (row.iconGrayUrl ?? row.iconUrl) : row.iconUrl}
         gray={locked}
@@ -33,7 +38,12 @@ export function DialogRow({ row, rare = false, locked = false, aside }: DialogRo
           </span>
         )}
       </div>
-      {aside}
+      {aside ??
+        (row.unlockedAt !== null && (
+          <time className="whitespace-nowrap text-[12px] text-muted">
+            {t("dialog.unlockedOn", { date: formatDateTime(row.unlockedAt, locale) })}
+          </time>
+        ))}
     </div>
   );
-}
+});

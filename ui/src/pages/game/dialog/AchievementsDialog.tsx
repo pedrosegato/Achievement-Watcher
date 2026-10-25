@@ -1,4 +1,4 @@
-import { useReducer, useRef, useState } from "react";
+import { useDeferredValue, useReducer, useRef, useState } from "react";
 import { ArtImage } from "../../../components/ArtImage";
 import { Icon } from "../../../components/Icon";
 import { Segmented } from "../../../components/Segmented";
@@ -37,6 +37,7 @@ export function AchievementsDialog({
   const { t } = useI18n();
   const maskHidden = useAppSettings()?.hideHiddenAchievements ?? true;
   const [query, setQuery] = useState("");
+  const listQuery = useDeferredValue(query);
   const [revealed, dispatch] = useReducer(hiddenReducer, NONE);
   const search = useRef<HTMLInputElement>(null);
 
@@ -107,9 +108,10 @@ export function AchievementsDialog({
         </div>
         <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-[22px] pb-[22px]">
           <AchievementList
+            key={filter}
             rows={detail.achievements}
             filter={filter}
-            query={query}
+            query={listQuery}
             maskHidden={maskHidden}
             revealed={revealed}
             dispatch={dispatch}

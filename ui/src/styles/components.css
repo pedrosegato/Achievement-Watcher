@@ -172,6 +172,12 @@ html.overlay body {
   transition-delay: calc(60ms + var(--i) * var(--stagger));
 }
 
+.collapse-card > .collapse-row,
+.dialog-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
+}
+
 .collapse-section[data-state="closed"] .collapse-row {
   opacity: 0;
   transform: translateY(-10px) scale(0.985);

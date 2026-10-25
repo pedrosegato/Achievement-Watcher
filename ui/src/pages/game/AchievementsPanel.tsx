@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { AchievementIcon } from "../../components/AchievementIcon";
 import { Button } from "../../components/ui/button";
 import { useI18n } from "../../i18n/useI18n";
@@ -12,7 +13,10 @@ interface AchievementsPanelProps {
   onOpenDialog: (filter: AchievementFilter) => void;
 }
 
-export function AchievementsPanel({ detail, onOpenDialog }: AchievementsPanelProps) {
+export const AchievementsPanel = memo(function AchievementsPanel({
+  detail,
+  onOpenDialog,
+}: AchievementsPanelProps) {
   const { t, locale } = useI18n();
   const threshold = useRareThreshold();
   const maskHidden = useAppSettings()?.hideHiddenAchievements ?? true;
@@ -79,4 +83,4 @@ export function AchievementsPanel({ detail, onOpenDialog }: AchievementsPanelPro
       </div>
     </aside>
   );
-}
+});
