@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Xbox One</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+      }
+      #root {
+        position: absolute;
+        inset: 0;
+      }
+      .aw-xbox-stage {
+        position: absolute;
+        left: 0;
+        top: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="player.js"></script>
+    <script>
+      (() => {
+        const KINDS = { unlock: "normal", rare: "rare", platinum: "mythic" };
+        const ZOOM = 0.72;
+        const BLEED = [185, 120];
+        const OVERHANG = 50;
+        const ACCENT = "#107C10";
+        const ready = Promise.all([
+          fetch("toasts.json").then((response) => response.json()),
+          fetch("layout.json").then((response) => response.json()),
+        ]);
+        let player = null;
+
+        const lines = (data, kind) => {
+          const labels = data.labels || {};
+          if (kind === "mythic") return [labels.mythic || "", data.game || "", labels.unlockedAll || ""];
+          const third = data.percent != null && kind === "rare" ? labels.players : data.description;
+          const first = kind === "rare" ? labels.rare : labels.unlocked || data.unlockedLabel;
+          return [first || "", data.displayName || "", third || ""];
+        };
+
+        const kindOf = (data) => {
+          if (KINDS[data.kind]) return KINDS[data.kind];
+          if (data.platinum) return "mythic";
+          return data.rare ? "rare" : "normal";
+        };
+
+        const place = (position, layout) => {
+          const stage = document.querySelector(".aw-xbox-stage");
+          const toast = stage?.lastElementChild;
+          if (!toast) return;
+          const [y, x] = (position || "middle-center").split("-");
+          const { width: stageWidth, height: stageHeight, toastTop } = layout.stage;
+          const width = Number.parseFloat(toast.style.width);
+          const height = layout.toast.height;
+          const edge = BLEED[0] + OVERHANG;
+          const left = { left: edge, right: stageWidth - edge - width }[x] ?? (stageWidth - width) / 2;
+          const top = { top: BLEED[1], bottom: stageHeight - BLEED[1] - height }[y] ?? (stageHeight - height) / 2;
+          stage.style.left = `${left - Number.parseFloat(toast.style.left)}px`;
+          stage.style.top = `${top - toastTop}px`;
+        };
+
+        const show = (data = {}) => {
+          ready
+            .then(([spec, layout]) => {
+              player = player || AwXbox.mount(document.getElementById("root"), { spec, layout, base: "" });
+              const scale = typeof data.scale === "number" && data.scale > 0 ? data.scale : 1;
+              document.documentElement.style.zoom = String(scale * ZOOM);
+              const kind = kindOf(data);
+              player.play(kind, lines(data, kind), ACCENT);
+              place(data.position, layout);
+            })
+            .catch((error) => console.error(error));
+        };
+
+        if (window.api && typeof window.api.onNotification === "function") window.api.onNotification(show);
+        else window.__awShow = show;
+      })();
+    </script>
+  </body>
+</html>

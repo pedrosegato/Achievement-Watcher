@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PlayStation 5</title>
+    <style>
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+:root { --bleed-x: 36px; --bleed-y: 36px; }
+#stage { position: absolute; inset: var(--bleed-y) var(--bleed-x); display: flex; align-items: center; justify-content: center; }
+#stage[data-x="left"] { justify-content: flex-start; }
+#stage[data-x="right"] { justify-content: flex-end; }
+#stage[data-y="top"] { align-items: flex-start; }
+#stage[data-y="bottom"] { align-items: flex-end; }
+#stage { --drop: -14px; }
+#stage[data-y="bottom"] { --drop: 14px; }
+@font-face { font-family: "SST"; src: url("SST.ttf"); font-weight: 400; }
+@font-face { font-family: "SST"; src: url("SSTLight.ttf"); font-weight: 300; }
+.cup { flex: none; display: block; width: auto; height: 1.2em; }
+
+.ps5 {
+  position: relative; display: flex; align-items: center; gap: 12px;
+  min-width: 300px; max-width: 450px; box-sizing: border-box; padding: 11px 18px 11px 11px;
+  background: rgba(30, 30, 30, .95); border-radius: 10px; box-shadow: 0 8px 26px rgba(0, 0, 0, .4);
+  font-family: "SST", "Segoe UI", sans-serif; color: #fff; opacity: 0; transform: translateY(var(--drop));
+  transition: opacity 240ms ease, transform 300ms cubic-bezier(.2, .8, .2, 1);
+}
+.ps5.in { opacity: 1; transform: none; }
+.ps5.out { opacity: 0; transform: translateY(var(--drop)); transition: opacity 240ms ease, transform 260ms cubic-bezier(.4, 0, 1, 1); }
+.ps5-icon { flex: none; width: 46px; height: 46px; box-sizing: border-box; border: 1px solid rgba(255, 255, 255, .22); border-radius: 4px; overflow: hidden; background: #111; }
+.ps5-icon img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ps5-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps5-name { display: flex; align-items: center; gap: 6px; font-size: 17px; line-height: 1.25; min-width: 0; }
+.ps5-name span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps5-sub { font-weight: 300; font-size: 13.5px; color: #9a9a9a; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) {
+  #stage *, #stage *::before, #stage *::after { transition: none; animation: none; }
+}
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <script>
+(() => {
+  const HOLD = 5500;
+  const END = 5800;
+  const stage = document.getElementById("stage");
+  let timers = [];
+  const make = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const icon = (data, className) => {
+    const wrap = make("span", className);
+    const src = data.icon || data.iconPath;
+    if (src) {
+      const image = make("img");
+      image.alt = "";
+      image.src = src;
+      wrap.append(image);
+    }
+    return wrap;
+  };
+  const reset = () => {
+    for (const timer of timers) clearTimeout(timer);
+    timers = [];
+    stage.replaceChildren();
+  };
+  const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const trophy = (data) => {
+    if (data.kind === "platinum" || data.platinum) return "platinum";
+    if (data.percent == null) return "bronze";
+    if (data.percent < 10) return "gold";
+    return data.percent <= 30 ? "silver" : "bronze";
+  };
+  const cupFor = (data) => {
+    const cup = make("img", "cup");
+    cup.alt = "";
+    cup.src = `trophy-${trophy(data)}.png`;
+    return cup;
+  };
+  const build = (data) => {
+    const labels = data.labels || {};
+    const root = make("div", "ps5");
+    const text = make("div", "ps5-text");
+    const name = make("div", "ps5-name");
+    name.append(cupFor(data), make("span", "", data.displayName || ""));
+    text.append(name, make("div", "ps5-sub", labels.trophyEarned || ""));
+    root.append(icon(data, "ps5-icon"), text);
+    return root;
+  };
+  const show = (data = {}) => {
+    reset();
+    const [y, x] = (data.position || "middle-center").split("-");
+    stage.dataset.x = x;
+    stage.dataset.y = y;
+    if (typeof data.scale === "number" && data.scale > 0) document.documentElement.style.zoom = String(data.scale);
+    const node = build(data);
+    stage.append(node);
+    void node.offsetWidth;
+    node.classList.add("in");
+
+    at(HOLD, () => node.classList.add("out"));
+    at(END, reset);
+  };
+  if (window.api && typeof window.api.onNotification === "function") window.api.onNotification(show);
+  else window.__awShow = show;
+})();
+    </script>
+  </body>
+</html>

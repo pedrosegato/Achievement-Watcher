@@ -1,0 +1,2001 @@
+{
+  "stage": {
+    "width": 900,
+    "height": 420,
+    "toastTop": 200
+  },
+  "toast": {
+    "height": 100,
+    "minWidth": 300,
+    "maxWidth": 530,
+    "textPad": 76,
+    "fontSize": 22
+  },
+  "scaled": {
+    "ImageGrid.tx": {
+      "reference": 280,
+      "offset": 15
+    }
+  },
+  "auroraScale": {
+    "x": [146, 100],
+    "y": 3.3333333333333335
+  },
+  "laurelEase": {
+    "in": [0.162, 0.15, 0, 1.005],
+    "out": [0.995, 0.009, 0.822, 0.786]
+  },
+  "accent": {
+    "light": 0.12,
+    "dark": -0.1
+  },
+  "panels": {
+    "normal": {
+      "panel": "enhanced",
+      "seq": {
+        "rotate": 4.0,
+        "hide": 8.92
+      },
+      "ambientStart": 2.5,
+      "laurel": null,
+      "sheets": {
+        "IconIntroSequence": "TrophyIntro.png",
+        "IconAmbientLoopSequence": "TrophyIdle.png",
+        "IconExitLoopSequence": "TrophyOutro.png"
+      },
+      "bases": {
+        "DropshadowGrid": {
+          "op": 0,
+          "sx": 0,
+          "vis": 0
+        },
+        "ToastBackground": {
+          "sx": 0
+        },
+        "LightRippleEllipse": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "MediumRippleEllipse": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "DarkRippleEllipse": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "MediumRippleEllipse2": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "TextGrid": {
+          "op": 0
+        },
+        "FrontText": {},
+        "BackText": {
+          "ty": 100
+        },
+        "ImageGrid": {},
+        "ImageBackgroundGrid": {
+          "op": 0,
+          "vis": 0
+        },
+        "IconIntroSequence": {
+          "op": 0
+        },
+        "IconAmbientLoopSequence": {
+          "op": 0
+        },
+        "IconExitLoopSequence": {
+          "op": 0
+        }
+      },
+      "toast": {
+        "tag": "div",
+        "style": {
+          "position": "absolute",
+          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+          "color": "rgb(255, 255, 255)"
+        },
+        "children": [
+          {
+            "tag": "div",
+            "name": "DropshadowGrid",
+            "style": {
+              "position": "absolute",
+              "transform-origin": "50% 50%"
+            },
+            "box": {
+              "left": -55.0,
+              "top": -5.0,
+              "width": [1.0, 110.0],
+              "height": 110.0
+            },
+            "children": [
+              {
+                "tag": "img",
+                "src": "EnhancedShadowEdge.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 56.0,
+                  "height": 110.0
+                }
+              },
+              {
+                "tag": "img",
+                "src": "EnhancedShadowCenter.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none"
+                },
+                "box": {
+                  "left": 56.0,
+                  "top": 0.0,
+                  "width": [1.0, -2.0],
+                  "height": 110.0
+                }
+              },
+              {
+                "tag": "img",
+                "src": "EnhancedShadowEdge.png",
+                "mirror": true,
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none"
+                },
+                "box": {
+                  "top": 0.0,
+                  "right": 0.0,
+                  "width": 56.0,
+                  "height": 110.0
+                }
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "name": "ToastBackground",
+            "style": {
+              "position": "absolute",
+              "transform-origin": "50% 50%"
+            },
+            "box": {
+              "left": -50.0,
+              "top": 0.0,
+              "width": [1.0, 100.0],
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "fill": "dark",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50px"
+                },
+                "box": {
+                  "inset": 0
+                }
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "style": {
+              "position": "absolute"
+            },
+            "box": {
+              "left": [0.5, -50.0],
+              "top": 0.0,
+              "width": 100.0,
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "name": "LightRippleEllipse",
+                "fill": "light",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              },
+              {
+                "tag": "div",
+                "name": "MediumRippleEllipse",
+                "fill": "accent",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              },
+              {
+                "tag": "div",
+                "name": "DarkRippleEllipse",
+                "fill": "dark",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              },
+              {
+                "tag": "div",
+                "name": "MediumRippleEllipse2",
+                "fill": "accent",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "style": {
+              "position": "absolute",
+              "overflow": "hidden"
+            },
+            "box": {
+              "left": 68.0,
+              "top": 0.0,
+              "width": [1.0, -68.0],
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "name": "TextGrid",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "right": 0.0,
+                  "height": 100.0
+                },
+                "children": [
+                  {
+                    "tag": "div",
+                    "name": "FrontText",
+                    "style": {
+                      "position": "absolute",
+                      "display": "flex",
+                      "flex-direction": "column",
+                      "justify-content": "center",
+                      "font-size": "22px",
+                      "line-height": "1.25",
+                      "white-space": "nowrap",
+                      "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                      "letter-spacing": "normal",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "right": 0.0,
+                      "height": 100.0
+                    },
+                    "children": [
+                      {
+                        "tag": "div",
+                        "style": {
+                          "overflow": "hidden",
+                          "text-overflow": "ellipsis",
+                          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                          "letter-spacing": "normal",
+                          "font-weight": "600"
+                        },
+                        "text": "line1"
+                      },
+                      {
+                        "tag": "div",
+                        "style": {
+                          "margin-top": "4px",
+                          "overflow": "hidden",
+                          "text-overflow": "ellipsis",
+                          "font-weight": "350",
+                          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                          "letter-spacing": "normal"
+                        },
+                        "text": "line2"
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "name": "BackText",
+                    "style": {
+                      "position": "absolute",
+                      "display": "flex",
+                      "align-items": "center",
+                      "font-size": "22px",
+                      "line-height": "29px",
+                      "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                      "letter-spacing": "normal",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "right": 0.0,
+                      "height": 100.0
+                    },
+                    "children": [
+                      {
+                        "tag": "div",
+                        "style": {
+                          "max-height": "58px",
+                          "overflow": "hidden",
+                          "display": "-webkit-box",
+                          "-webkit-line-clamp": "2",
+                          "-webkit-box-orient": "vertical",
+                          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                          "letter-spacing": "normal",
+                          "font-weight": "350"
+                        },
+                        "text": "line3"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "name": "ImageGrid",
+            "style": {
+              "position": "absolute",
+              "transform-origin": "50% 50%"
+            },
+            "box": {
+              "left": [0.5, -50.0],
+              "top": 0.0,
+              "width": 100.0,
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "name": "ImageBackgroundGrid",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                },
+                "children": [
+                  {
+                    "tag": "div",
+                    "fill": "accent",
+                    "style": {
+                      "position": "absolute",
+                      "border-radius": "50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "width": 100.0,
+                      "height": 100.0
+                    }
+                  }
+                ]
+              },
+              {
+                "tag": "div",
+                "name": "IconIntroSequence",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 16.0,
+                  "top": 16.0,
+                  "width": 68.0,
+                  "height": 68.0
+                },
+                "children": [
+                  {
+                    "tag": "canvas",
+                    "style": {
+                      "display": "block"
+                    },
+                    "box": {
+                      "width": 68.0,
+                      "height": 68.0
+                    },
+                    "flipbook": "IconIntroSequence"
+                  }
+                ]
+              },
+              {
+                "tag": "div",
+                "name": "IconAmbientLoopSequence",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 16.0,
+                  "top": 16.0,
+                  "width": 68.0,
+                  "height": 68.0
+                },
+                "children": [
+                  {
+                    "tag": "canvas",
+                    "style": {
+                      "display": "block"
+                    },
+                    "box": {
+                      "width": 68.0,
+                      "height": 68.0
+                    },
+                    "flipbook": "IconAmbientLoopSequence"
+                  }
+                ]
+              },
+              {
+                "tag": "div",
+                "name": "IconExitLoopSequence",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 16.0,
+                  "top": 16.0,
+                  "width": 68.0,
+                  "height": 68.0
+                },
+                "children": [
+                  {
+                    "tag": "canvas",
+                    "style": {
+                      "display": "block"
+                    },
+                    "box": {
+                      "width": 68.0,
+                      "height": 68.0
+                    },
+                    "flipbook": "IconExitLoopSequence"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "rare": {
+      "panel": "gleam",
+      "seq": {
+        "rotate": 4.2,
+        "hide": 8.92,
+        "laurel": 0.667,
+        "GleamAnimation": 2.631
+      },
+      "ambientStart": 2.5,
+      "laurel": "1",
+      "sheets": {
+        "IconIntroSequence": "DiamondIntroV2.png",
+        "IconAmbientLoopSequence": "DiamondIdleV2.png",
+        "IconExitLoopSequence": "DiamondOutroV2.png"
+      },
+      "bases": {
+        "DropshadowGrid": {
+          "op": 0,
+          "sx": 0,
+          "vis": 0
+        },
+        "ToastBackground": {
+          "sx": 0
+        },
+        "GleamRectangle": {
+          "tx": -100,
+          "vis": 0,
+          "op": 1
+        },
+        "LightRippleEllipse": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "MediumRippleEllipse": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "DarkRippleEllipse": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "MediumRippleEllipse2": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "TextGrid": {
+          "op": 0
+        },
+        "FrontText": {},
+        "BackText": {
+          "ty": 100
+        },
+        "ImageGrid": {},
+        "ImageBackgroundGrid": {
+          "op": 0,
+          "vis": 0
+        },
+        "IconIntroSequence": {
+          "op": 0
+        },
+        "IconAmbientLoopSequence": {
+          "op": 0
+        },
+        "IconExitLoopSequence": {
+          "op": 0
+        }
+      },
+      "toast": {
+        "tag": "div",
+        "style": {
+          "position": "absolute",
+          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+          "color": "rgb(255, 255, 255)"
+        },
+        "children": [
+          {
+            "tag": "div",
+            "name": "DropshadowGrid",
+            "style": {
+              "position": "absolute",
+              "transform-origin": "50% 50%"
+            },
+            "box": {
+              "left": -55.0,
+              "top": -5.0,
+              "width": [1.0, 110.0],
+              "height": 110.0
+            },
+            "children": [
+              {
+                "tag": "img",
+                "src": "EnhancedShadowEdge.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 56.0,
+                  "height": 110.0
+                }
+              },
+              {
+                "tag": "img",
+                "src": "EnhancedShadowCenter.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none"
+                },
+                "box": {
+                  "left": 56.0,
+                  "top": 0.0,
+                  "width": [1.0, -2.0],
+                  "height": 110.0
+                }
+              },
+              {
+                "tag": "img",
+                "src": "EnhancedShadowEdge.png",
+                "mirror": true,
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none"
+                },
+                "box": {
+                  "top": 0.0,
+                  "right": 0.0,
+                  "width": 56.0,
+                  "height": 110.0
+                }
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "name": "ToastBackground",
+            "style": {
+              "position": "absolute",
+              "transform-origin": "50% 50%"
+            },
+            "box": {
+              "left": -50.0,
+              "top": 0.0,
+              "width": [1.0, 100.0],
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "fill": "dark",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50px"
+                },
+                "box": {
+                  "inset": 0
+                }
+              },
+              {
+                "tag": "div",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50px",
+                  "overflow": "hidden"
+                },
+                "box": {
+                  "inset": 0
+                },
+                "children": [
+                  {
+                    "tag": "div",
+                    "name": "GleamRectangle",
+                    "backgroundImage": "gleam.png",
+                    "style": {
+                      "position": "absolute",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 100.0,
+                      "top": 0.0,
+                      "width": [1.0, -100.0],
+                      "height": 100.0
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "style": {
+              "position": "absolute"
+            },
+            "box": {
+              "left": [0.5, -50.0],
+              "top": 0.0,
+              "width": 100.0,
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "name": "LightRippleEllipse",
+                "fill": "light",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              },
+              {
+                "tag": "div",
+                "name": "MediumRippleEllipse",
+                "fill": "accent",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              },
+              {
+                "tag": "div",
+                "name": "DarkRippleEllipse",
+                "fill": "dark",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              },
+              {
+                "tag": "div",
+                "name": "MediumRippleEllipse2",
+                "fill": "accent",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "style": {
+              "position": "absolute",
+              "overflow": "hidden"
+            },
+            "box": {
+              "left": 68.0,
+              "top": 0.0,
+              "width": [1.0, -68.0],
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "name": "TextGrid",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "right": 0.0,
+                  "height": 100.0
+                },
+                "children": [
+                  {
+                    "tag": "div",
+                    "name": "FrontText",
+                    "style": {
+                      "position": "absolute",
+                      "display": "flex",
+                      "flex-direction": "column",
+                      "justify-content": "center",
+                      "font-size": "22px",
+                      "line-height": "1.25",
+                      "white-space": "nowrap",
+                      "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                      "letter-spacing": "normal",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "right": 0.0,
+                      "height": 100.0
+                    },
+                    "children": [
+                      {
+                        "tag": "div",
+                        "style": {
+                          "overflow": "hidden",
+                          "text-overflow": "ellipsis",
+                          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                          "letter-spacing": "normal",
+                          "font-weight": "600"
+                        },
+                        "text": "line1"
+                      },
+                      {
+                        "tag": "div",
+                        "style": {
+                          "margin-top": "4px",
+                          "overflow": "hidden",
+                          "text-overflow": "ellipsis",
+                          "font-weight": "350",
+                          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                          "letter-spacing": "normal"
+                        },
+                        "text": "line2"
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "name": "BackText",
+                    "style": {
+                      "position": "absolute",
+                      "display": "flex",
+                      "align-items": "center",
+                      "font-size": "22px",
+                      "line-height": "29px",
+                      "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                      "letter-spacing": "normal",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "right": 0.0,
+                      "height": 100.0
+                    },
+                    "children": [
+                      {
+                        "tag": "div",
+                        "style": {
+                          "max-height": "58px",
+                          "overflow": "hidden",
+                          "display": "-webkit-box",
+                          "-webkit-line-clamp": "2",
+                          "-webkit-box-orient": "vertical",
+                          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                          "letter-spacing": "normal",
+                          "font-weight": "350"
+                        },
+                        "text": "line3"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "name": "ImageGrid",
+            "style": {
+              "position": "absolute",
+              "transform-origin": "50% 50%"
+            },
+            "box": {
+              "left": [0.5, -50.0],
+              "top": 0.0,
+              "width": 100.0,
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "name": "ImageBackgroundGrid",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                },
+                "children": [
+                  {
+                    "tag": "div",
+                    "fill": "accent",
+                    "style": {
+                      "position": "absolute",
+                      "border-radius": "50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "width": 100.0,
+                      "height": 100.0
+                    }
+                  }
+                ]
+              },
+              {
+                "tag": "div",
+                "name": "IconIntroSequence",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 8.0,
+                  "top": 8.0,
+                  "width": 84.0,
+                  "height": 84.0
+                },
+                "children": [
+                  {
+                    "tag": "canvas",
+                    "style": {
+                      "display": "block"
+                    },
+                    "box": {
+                      "width": 84.0,
+                      "height": 84.0
+                    },
+                    "flipbook": "IconIntroSequence"
+                  }
+                ]
+              },
+              {
+                "tag": "div",
+                "name": "IconAmbientLoopSequence",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 8.0,
+                  "top": 8.0,
+                  "width": 84.0,
+                  "height": 84.0
+                },
+                "children": [
+                  {
+                    "tag": "canvas",
+                    "style": {
+                      "display": "block"
+                    },
+                    "box": {
+                      "width": 84.0,
+                      "height": 84.0
+                    },
+                    "flipbook": "IconAmbientLoopSequence"
+                  }
+                ]
+              },
+              {
+                "tag": "div",
+                "name": "IconExitLoopSequence",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 8.0,
+                  "top": 8.0,
+                  "width": 84.0,
+                  "height": 84.0
+                },
+                "children": [
+                  {
+                    "tag": "canvas",
+                    "style": {
+                      "display": "block"
+                    },
+                    "box": {
+                      "width": 84.0,
+                      "height": 84.0
+                    },
+                    "flipbook": "IconExitLoopSequence"
+                  }
+                ]
+              },
+              {
+                "tag": "svg",
+                "laurel": true,
+                "box": {
+                  "left": -6.0,
+                  "top": -4.0,
+                  "width": 112.0,
+                  "height": 112.0
+                },
+                "style": {
+                  "position": "absolute"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "mythic": {
+      "panel": "aurora",
+      "seq": {
+        "rotate": 5.2,
+        "hide": 10.92,
+        "laurel": 0.667,
+        "ambient": 4.0,
+        "GlowAnimation": 0,
+        "PulseAnimation": 0.7,
+        "RippleAnimation": 0,
+        "GleamAnimation": 0
+      },
+      "ambientStart": 4.0,
+      "laurel": "2",
+      "sheets": {
+        "AuroraFlipBook": "Aurora.png",
+        "IconIntroBase": "MythicIntro.png",
+        "IconIntroHighlight": "MythicIntroHighlights.png",
+        "IconAmbientBase": "MythicIdle.png",
+        "IconAmbientHighlight": "MythicIdleHighlights.png",
+        "IconExitBase": "MythicOutro.png",
+        "IconExitHighlight": "MythicOutroHighlights.png"
+      },
+      "bases": {
+        "AuroraFlipBook": {
+          "op": 0,
+          "sx": 3.7534246575342465,
+          "sy": 3.3333333333333335,
+          "tx": 0,
+          "ty": 0
+        },
+        "DropshadowGrid": {
+          "op": 0,
+          "sx": 0,
+          "vis": 0
+        },
+        "ToastBackground": {
+          "sx": 0
+        },
+        "GleamRectangle": {
+          "tx": -100,
+          "vis": 0,
+          "op": 1
+        },
+        "Sparkle1": {
+          "op": 0,
+          "sx": 0.3,
+          "sy": 0.3
+        },
+        "Sparkle2": {
+          "op": 0,
+          "sx": 0.3,
+          "sy": 0.3
+        },
+        "Sparkle3": {
+          "op": 0,
+          "sx": 0.3,
+          "sy": 0.3
+        },
+        "Sparkle4": {
+          "op": 0,
+          "sx": 0.3,
+          "sy": 0.3
+        },
+        "Sparkle5": {
+          "op": 0,
+          "sx": 0.3,
+          "sy": 0.3
+        },
+        "Sparkle6": {
+          "op": 0,
+          "sx": 0.3,
+          "sy": 0.3
+        },
+        "LightRippleEllipse": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "MediumRippleEllipse": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "DarkRippleEllipse": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "MediumRippleEllipse2": {
+          "sx": 0,
+          "sy": 0,
+          "vis": 0
+        },
+        "TextGrid": {
+          "op": 0
+        },
+        "FrontText": {},
+        "BackText": {
+          "ty": 100
+        },
+        "ImageGrid": {},
+        "ImageBackgroundGrid": {
+          "op": 0,
+          "vis": 0
+        },
+        "PulseImage": {
+          "op": 0
+        },
+        "PulseImageDelayed": {
+          "op": 0
+        },
+        "IconIntroSequence": {
+          "op": 0
+        },
+        "IconAmbientLoopSequence": {
+          "op": 0
+        },
+        "IconExitLoopSequence": {
+          "op": 0
+        },
+        "RippleImage": {
+          "op": 0,
+          "sx": 0,
+          "sy": 0
+        },
+        "GlowLayer": {
+          "op": 0
+        },
+        "GlowImageA": {},
+        "GlowImageB": {}
+      },
+      "toast": {
+        "tag": "div",
+        "style": {
+          "position": "absolute",
+          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+          "color": "rgb(255, 255, 255)"
+        },
+        "children": [
+          {
+            "tag": "div",
+            "name": "AuroraFlipBook",
+            "style": {
+              "position": "absolute",
+              "transform-origin": "50% 50%"
+            },
+            "box": {
+              "left": [0.5, -130.0],
+              "top": -10.0,
+              "width": 260.0,
+              "height": 120.0
+            },
+            "children": [
+              {
+                "tag": "canvas",
+                "style": {
+                  "display": "block"
+                },
+                "box": {
+                  "width": 260.0,
+                  "height": 120.0
+                },
+                "flipbook": "AuroraFlipBook"
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "name": "DropshadowGrid",
+            "style": {
+              "position": "absolute",
+              "transform-origin": "50% 50%"
+            },
+            "box": {
+              "left": -55.0,
+              "top": -5.0,
+              "width": [1.0, 110.0],
+              "height": 110.0
+            },
+            "children": [
+              {
+                "tag": "img",
+                "src": "EnhancedShadowEdge.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 56.0,
+                  "height": 110.0
+                }
+              },
+              {
+                "tag": "img",
+                "src": "EnhancedShadowCenter.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none"
+                },
+                "box": {
+                  "left": 56.0,
+                  "top": 0.0,
+                  "width": [1.0, -2.0],
+                  "height": 110.0
+                }
+              },
+              {
+                "tag": "img",
+                "src": "EnhancedShadowEdge.png",
+                "mirror": true,
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none"
+                },
+                "box": {
+                  "top": 0.0,
+                  "right": 0.0,
+                  "width": 56.0,
+                  "height": 110.0
+                }
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "name": "ToastBackground",
+            "style": {
+              "position": "absolute",
+              "transform-origin": "50% 50%"
+            },
+            "box": {
+              "left": -50.0,
+              "top": 0.0,
+              "width": [1.0, 100.0],
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "fill": "dark",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50px"
+                },
+                "box": {
+                  "inset": 0
+                }
+              },
+              {
+                "tag": "div",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50px",
+                  "overflow": "hidden"
+                },
+                "box": {
+                  "inset": 0
+                },
+                "children": [
+                  {
+                    "tag": "div",
+                    "name": "GleamRectangle",
+                    "backgroundImage": "gleam.png",
+                    "style": {
+                      "position": "absolute",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 100.0,
+                      "top": 0.0,
+                      "width": [1.0, -100.0],
+                      "height": 100.0
+                    }
+                  }
+                ]
+              },
+              {
+                "tag": "img",
+                "name": "Sparkle1",
+                "src": "ShimmerSparkle.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": [0.5, -79.5],
+                  "top": -12.0,
+                  "width": 14.0,
+                  "height": 24.0
+                }
+              },
+              {
+                "tag": "img",
+                "name": "Sparkle2",
+                "src": "ShimmerSparkle.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": [0.5, -46.0],
+                  "top": 88.0,
+                  "width": 14.0,
+                  "height": 24.0
+                }
+              },
+              {
+                "tag": "img",
+                "name": "Sparkle3",
+                "src": "ShimmerSparkle.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": [0.5, 28.0],
+                  "top": -12.0,
+                  "width": 14.0,
+                  "height": 24.0
+                }
+              },
+              {
+                "tag": "img",
+                "name": "Sparkle4",
+                "src": "ShimmerSparkle.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": [0.5, 66.0],
+                  "top": 88.0,
+                  "width": 14.0,
+                  "height": 24.0
+                }
+              },
+              {
+                "tag": "img",
+                "name": "Sparkle5",
+                "src": "ShimmerSparkle.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": [1.0, -19.0],
+                  "top": -12.0,
+                  "width": 14.0,
+                  "height": 24.0
+                }
+              },
+              {
+                "tag": "img",
+                "name": "Sparkle6",
+                "src": "ShimmerSparkle.png",
+                "style": {
+                  "position": "absolute",
+                  "display": "block",
+                  "max-width": "none",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": [1.0, 6.0],
+                  "top": 88.0,
+                  "width": 14.0,
+                  "height": 24.0
+                }
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "style": {
+              "position": "absolute"
+            },
+            "box": {
+              "left": [0.5, -50.0],
+              "top": 0.0,
+              "width": 100.0,
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "name": "LightRippleEllipse",
+                "fill": "light",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              },
+              {
+                "tag": "div",
+                "name": "MediumRippleEllipse",
+                "fill": "accent",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              },
+              {
+                "tag": "div",
+                "name": "DarkRippleEllipse",
+                "fill": "dark",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              },
+              {
+                "tag": "div",
+                "name": "MediumRippleEllipse2",
+                "fill": "accent",
+                "style": {
+                  "position": "absolute",
+                  "border-radius": "50%",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                }
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "style": {
+              "position": "absolute",
+              "overflow": "hidden"
+            },
+            "box": {
+              "left": 68.0,
+              "top": 0.0,
+              "width": [1.0, -68.0],
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "name": "TextGrid",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "right": 0.0,
+                  "height": 100.0
+                },
+                "children": [
+                  {
+                    "tag": "div",
+                    "name": "FrontText",
+                    "style": {
+                      "position": "absolute",
+                      "display": "flex",
+                      "flex-direction": "column",
+                      "justify-content": "center",
+                      "font-size": "22px",
+                      "line-height": "1.25",
+                      "white-space": "nowrap",
+                      "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                      "letter-spacing": "normal",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "right": 0.0,
+                      "height": 100.0
+                    },
+                    "children": [
+                      {
+                        "tag": "div",
+                        "style": {
+                          "overflow": "hidden",
+                          "text-overflow": "ellipsis",
+                          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                          "letter-spacing": "normal",
+                          "font-weight": "600"
+                        },
+                        "text": "line1"
+                      },
+                      {
+                        "tag": "div",
+                        "style": {
+                          "margin-top": "4px",
+                          "overflow": "hidden",
+                          "text-overflow": "ellipsis",
+                          "font-weight": "350",
+                          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                          "letter-spacing": "normal"
+                        },
+                        "text": "line2"
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "name": "BackText",
+                    "style": {
+                      "position": "absolute",
+                      "display": "flex",
+                      "align-items": "center",
+                      "font-size": "22px",
+                      "line-height": "29px",
+                      "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                      "letter-spacing": "normal",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "right": 0.0,
+                      "height": 100.0
+                    },
+                    "children": [
+                      {
+                        "tag": "div",
+                        "style": {
+                          "max-height": "58px",
+                          "overflow": "hidden",
+                          "display": "-webkit-box",
+                          "-webkit-line-clamp": "2",
+                          "-webkit-box-orient": "vertical",
+                          "font-family": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
+                          "letter-spacing": "normal",
+                          "font-weight": "350"
+                        },
+                        "text": "line3"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "name": "ImageGrid",
+            "style": {
+              "position": "absolute",
+              "transform-origin": "50% 50%"
+            },
+            "box": {
+              "left": [0.5, -50.0],
+              "top": 0.0,
+              "width": 100.0,
+              "height": 100.0
+            },
+            "children": [
+              {
+                "tag": "div",
+                "name": "ImageBackgroundGrid",
+                "style": {
+                  "position": "absolute",
+                  "transform-origin": "50% 50%"
+                },
+                "box": {
+                  "left": 0.0,
+                  "top": 0.0,
+                  "width": 100.0,
+                  "height": 100.0
+                },
+                "children": [
+                  {
+                    "tag": "div",
+                    "fill": "accent",
+                    "style": {
+                      "position": "absolute",
+                      "border-radius": "50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "width": 100.0,
+                      "height": 100.0
+                    }
+                  }
+                ]
+              },
+              {
+                "tag": "div",
+                "style": {
+                  "position": "absolute"
+                },
+                "box": {
+                  "left": -70.0,
+                  "top": -70.0,
+                  "width": 240.0,
+                  "height": 240.0
+                },
+                "children": [
+                  {
+                    "tag": "img",
+                    "name": "PulseImage",
+                    "src": "MythicPulse.png",
+                    "style": {
+                      "position": "absolute",
+                      "display": "block",
+                      "max-width": "none",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 55.0,
+                      "top": 55.0,
+                      "width": 130.0,
+                      "height": 130.0
+                    }
+                  },
+                  {
+                    "tag": "img",
+                    "name": "PulseImageDelayed",
+                    "src": "MythicPulse.png",
+                    "style": {
+                      "position": "absolute",
+                      "display": "block",
+                      "max-width": "none",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 55.0,
+                      "top": 55.0,
+                      "width": 130.0,
+                      "height": 130.0
+                    }
+                  },
+                  {
+                    "tag": "div",
+                    "name": "IconIntroSequence",
+                    "style": {
+                      "position": "absolute",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "width": 240.0,
+                      "height": 240.0
+                    },
+                    "children": [
+                      {
+                        "tag": "div",
+                        "style": {
+                          "position": "absolute"
+                        },
+                        "box": {
+                          "left": 40.0,
+                          "top": 40.0,
+                          "width": 160.0,
+                          "height": 160.0
+                        },
+                        "children": [
+                          {
+                            "tag": "canvas",
+                            "style": {
+                              "display": "block"
+                            },
+                            "box": {
+                              "width": 160.0,
+                              "height": 160.0
+                            },
+                            "flipbook": "IconIntroBase"
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "div",
+                        "style": {
+                          "position": "absolute"
+                        },
+                        "box": {
+                          "left": 12.5,
+                          "top": 12.5,
+                          "width": 215.0,
+                          "height": 215.0
+                        },
+                        "children": [
+                          {
+                            "tag": "canvas",
+                            "style": {
+                              "display": "block"
+                            },
+                            "box": {
+                              "width": 215.0,
+                              "height": 215.0
+                            },
+                            "flipbook": "IconIntroHighlight"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "name": "IconAmbientLoopSequence",
+                    "style": {
+                      "position": "absolute",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "width": 240.0,
+                      "height": 240.0
+                    },
+                    "children": [
+                      {
+                        "tag": "div",
+                        "style": {
+                          "position": "absolute"
+                        },
+                        "box": {
+                          "left": 40.0,
+                          "top": 40.0,
+                          "width": 160.0,
+                          "height": 160.0
+                        },
+                        "children": [
+                          {
+                            "tag": "canvas",
+                            "style": {
+                              "display": "block"
+                            },
+                            "box": {
+                              "width": 160.0,
+                              "height": 160.0
+                            },
+                            "flipbook": "IconAmbientBase"
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "div",
+                        "style": {
+                          "position": "absolute"
+                        },
+                        "box": {
+                          "left": 67.0,
+                          "top": 67.0,
+                          "width": 106.0,
+                          "height": 106.0
+                        },
+                        "children": [
+                          {
+                            "tag": "canvas",
+                            "style": {
+                              "display": "block"
+                            },
+                            "box": {
+                              "width": 106.0,
+                              "height": 106.0
+                            },
+                            "flipbook": "IconAmbientHighlight"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "name": "IconExitLoopSequence",
+                    "style": {
+                      "position": "absolute",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 0.0,
+                      "top": 0.0,
+                      "width": 240.0,
+                      "height": 240.0
+                    },
+                    "children": [
+                      {
+                        "tag": "div",
+                        "style": {
+                          "position": "absolute"
+                        },
+                        "box": {
+                          "left": 40.0,
+                          "top": 40.0,
+                          "width": 160.0,
+                          "height": 160.0
+                        },
+                        "children": [
+                          {
+                            "tag": "canvas",
+                            "style": {
+                              "display": "block"
+                            },
+                            "box": {
+                              "width": 160.0,
+                              "height": 160.0
+                            },
+                            "flipbook": "IconExitBase"
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "div",
+                        "style": {
+                          "position": "absolute"
+                        },
+                        "box": {
+                          "left": 67.0,
+                          "top": 67.0,
+                          "width": 106.0,
+                          "height": 106.0
+                        },
+                        "children": [
+                          {
+                            "tag": "canvas",
+                            "style": {
+                              "display": "block"
+                            },
+                            "box": {
+                              "width": 106.0,
+                              "height": 106.0
+                            },
+                            "flipbook": "IconExitHighlight"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "img",
+                    "name": "RippleImage",
+                    "src": "Ripple.png",
+                    "style": {
+                      "position": "absolute",
+                      "display": "block",
+                      "max-width": "none",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 20.0,
+                      "top": 20.0,
+                      "width": 200.0,
+                      "height": 200.0
+                    }
+                  },
+                  {
+                    "tag": "div",
+                    "name": "GlowLayer",
+                    "style": {
+                      "position": "absolute",
+                      "transform-origin": "50% 50%"
+                    },
+                    "box": {
+                      "left": 5.0,
+                      "top": 5.0,
+                      "width": 230.0,
+                      "height": 230.0
+                    },
+                    "children": [
+                      {
+                        "tag": "img",
+                        "name": "GlowImageA",
+                        "src": "MythicGlowA.png",
+                        "style": {
+                          "position": "absolute",
+                          "display": "block",
+                          "max-width": "none",
+                          "transform-origin": "50% 50%"
+                        },
+                        "box": {
+                          "left": 0.0,
+                          "top": 0.0,
+                          "width": 230.0,
+                          "height": 230.0
+                        }
+                      },
+                      {
+                        "tag": "img",
+                        "name": "GlowImageB",
+                        "src": "MythicGlowB.png",
+                        "style": {
+                          "position": "absolute",
+                          "display": "block",
+                          "max-width": "none",
+                          "transform-origin": "50% 50%"
+                        },
+                        "box": {
+                          "left": 0.0,
+                          "top": 0.0,
+                          "width": 230.0,
+                          "height": 230.0
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "tag": "svg",
+                "laurel": true,
+                "box": {
+                  "left": -6.0,
+                  "top": -4.0,
+                  "width": 112.0,
+                  "height": 112.0
+                },
+                "style": {
+                  "position": "absolute"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

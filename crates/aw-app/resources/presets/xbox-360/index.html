@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Xbox 360</title>
+    <style>
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+:root { --bleed-x: 24px; --bleed-y: 24px; }
+#stage { position: absolute; inset: var(--bleed-y) var(--bleed-x); display: flex; align-items: center; justify-content: center; }
+#stage[data-x="left"] { justify-content: flex-start; }
+#stage[data-x="right"] { justify-content: flex-end; }
+#stage[data-y="top"] { align-items: flex-start; }
+#stage[data-y="bottom"] { align-items: flex-end; }
+.x360 { position: relative; flex: none; width: 440px; height: 84px; }
+.x360-pill {
+  position: absolute; left: 0; top: 0; height: 84px; width: 84px; box-sizing: border-box; overflow: hidden; border-radius: 42px;
+  background: linear-gradient(#4a4a4a, #3c3c3c 38%, #353535); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 6px 20px rgba(0, 0, 0, .45);
+  transition: width 420ms cubic-bezier(.2, .8, .2, 1);
+}
+.x360.open .x360-pill { width: 440px; }
+.x360.close .x360-pill { width: 84px; transition: width 360ms cubic-bezier(.65, 0, .35, 1); }
+.x360-text {
+  position: absolute; left: 98px; right: 32px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px;
+  font-family: "Segoe UI", sans-serif; color: #fff; opacity: 0; transition: opacity 220ms ease;
+}
+.x360.open .x360-text { opacity: 1; transition: opacity 260ms ease 220ms; }
+.x360.close .x360-text { opacity: 0; transition: opacity 160ms ease; }
+.x360-title { font-size: 21px; line-height: 1.1; white-space: nowrap; }
+.x360-name { font-size: 15px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.x360-ring {
+  position: absolute; left: 0; top: 0; width: 84px; height: 84px; border-radius: 50%; box-sizing: border-box;
+  background: conic-gradient(from 270deg, #5b8e18 0deg, #3e6a12 86deg, #151515 86deg 94deg, #262626 94deg 176deg, #151515 176deg 184deg, #262626 184deg 266deg, #151515 266deg 274deg, #262626 274deg 356deg, #151515 356deg 360deg);
+  transform: scale(0); transition: transform 360ms cubic-bezier(.34, 1.56, .64, 1);
+}
+.x360-ring::after { content: ""; position: absolute; inset: 11px; border-radius: 50%; background: #151515; }
+.x360.in .x360-ring { transform: none; }
+.x360.out .x360-ring { transform: scale(0); transition: transform 280ms cubic-bezier(.4, 0, 1, 1); }
+.x360.out .x360-pill { width: 0; opacity: 0; transition: width 200ms ease, opacity 200ms ease; }
+.x360-orb {
+  position: absolute; left: 15px; top: 15px; width: 54px; height: 54px; border-radius: 50%; z-index: 1;
+  background: radial-gradient(circle at 38% 30%, #ffffff 0%, #e4e4e4 22%, #a9a9a9 58%, #6f6f6f 100%);
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, .35);
+}
+.x360-orb svg { position: absolute; inset: 8px; width: 38px; height: 38px; }
+@media (prefers-reduced-motion: reduce) {
+  #stage *, #stage *::before, #stage *::after { transition: none; animation: none; }
+}
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <script>
+(() => {
+  const HOLD = 5200;
+  const END = 5900;
+  const stage = document.getElementById("stage");
+  let timers = [];
+  const make = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const reset = () => {
+    for (const timer of timers) clearTimeout(timer);
+    timers = [];
+    stage.replaceChildren();
+  };
+  const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const ORB = '<svg viewBox="0 0 38 38" aria-hidden="true"><defs><linearGradient id="x360x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9f99a"/><stop offset=".5" stop-color="#6fbf1f"/><stop offset="1" stop-color="#2f6d0c"/></linearGradient></defs><path d="M7 6c5 1.5 9.2 5.4 12 9.3C21.8 11.4 26 7.5 31 6c-2.6 3.6-6.2 8.4-8.6 13 2.6 4.4 6.4 9.3 9.1 13-5.5-1.7-9.6-5.6-12.5-9.6-2.9 4-7 7.9-12.5 9.6 2.7-3.7 6.5-8.6 9.1-13C13.2 14.4 9.6 9.6 7 6z" fill="url(#x360x)"/></svg>';
+  const build = (data) => {
+    const labels = data.labels || {};
+    const root = make("div", "x360");
+    const pill = make("div", "x360-pill");
+    const text = make("div", "x360-text");
+    text.append(make("div", "x360-title", labels.unlocked || data.unlockedLabel || ""), make("div", "x360-name", data.displayName || ""));
+    pill.append(text);
+    const ring = make("div", "x360-ring");
+    const orb = make("div", "x360-orb");
+    orb.innerHTML = ORB;
+    root.append(pill, ring, orb);
+    return root;
+  };
+  const show = (data = {}) => {
+    reset();
+    const [y, x] = (data.position || "middle-center").split("-");
+    stage.dataset.x = x;
+    stage.dataset.y = y;
+    if (typeof data.scale === "number" && data.scale > 0) document.documentElement.style.zoom = String(data.scale);
+    const node = build(data);
+    stage.append(node);
+    void node.offsetWidth;
+    node.classList.add("in");
+    at(380, () => node.classList.add("open"));
+    at(HOLD - 420, () => node.classList.add("close"));
+    at(HOLD, () => node.classList.add("out"));
+    at(END, reset);
+  };
+  if (window.api && typeof window.api.onNotification === "function") window.api.onNotification(show);
+  else window.__awShow = show;
+})();
+    </script>
+  </body>
+</html>

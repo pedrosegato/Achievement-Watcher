@@ -1,0 +1,15 @@
+{
+  "name": "Xbox One",
+  "author": "Achievement Watcher",
+  "version": "2.0.0",
+  "width": 648,
+  "height": 302,
+  "bleed": [133, 86],
+  "duration": 10.8,
+  "durations": {
+    "unlock": 10.8,
+    "rare": 10.8,
+    "platinum": 12.8,
+    "progress": 2.9
+  }
+}

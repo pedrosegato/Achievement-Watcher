@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Default</title>
+    <style>
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-weight: 400 800;
+  font-display: block;
+  src: url("fonts/SchibstedGrotesk-Variable-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-weight: 400 800;
+  font-display: block;
+  src: url("fonts/SchibstedGrotesk-Variable-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@property --edge { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+:root {
+  --sq: 80px; --w: 400px; --w-plat: 430px;
+  --ease-smooth: cubic-bezier(.22, 1, .36, 1); --ease-pop: cubic-bezier(.34, 1.56, .64, 1);
+  --ease-in: cubic-bezier(.4, 0, 1, 1); --ease-inout: cubic-bezier(.65, 0, .35, 1); --ease-glint: cubic-bezier(.45, 0, .2, 1);
+  --rare-spin: 14s; --rare-pulse: 3.2s; --rare-glint: 5s;
+  --surface: #171a20; --surface-2: #20242c; --line: rgba(255, 255, 255, .07); --text: #eef0f4; --muted: #9ba3b0; --dim: #6e7684;
+  --ray: rgba(255, 196, 77, .5); --halo: rgba(255, 170, 40, .42); --rim-hi: rgba(255, 226, 150, .95); --rim-mid: rgba(255, 196, 90, .6);
+  --rim-lo: rgba(255, 180, 60, .12); --inner: rgba(255, 205, 110, .55); --plat-glow: rgba(255, 180, 60, .16);
+  --card-shadow: 0 18px 40px rgba(0, 0, 0, .35), 0 2px 6px rgba(0, 0, 0, .2);
+}
+:root[data-theme="light"] {
+  --surface: #ffffff; --surface-2: #e9ebef; --line: rgba(0, 0, 0, .07); --text: #14171c; --muted: #5e6673; --dim: #8a919c;
+  --ray: rgba(230, 150, 0, .45); --halo: rgba(230, 150, 0, .32); --rim-hi: rgba(240, 170, 30, .95); --rim-mid: rgba(230, 150, 0, .55);
+  --rim-lo: rgba(230, 150, 0, .1); --inner: rgba(255, 190, 60, .5); --plat-glow: rgba(230, 150, 0, .12);
+  --card-shadow: 0 18px 40px rgba(20, 23, 28, .16), 0 2px 6px rgba(20, 23, 28, .08);
+}
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+body { font-family: "Schibsted Grotesk", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+:root { --bleed-x: 40px; --bleed-y: 40px; }
+#stage { position: absolute; inset: var(--bleed-y) var(--bleed-x); display: flex; align-items: center; justify-content: center; }
+#stage[data-x="left"] { justify-content: flex-start; }
+#stage[data-x="right"] { justify-content: flex-end; }
+#stage[data-y="top"] { align-items: flex-start; }
+#stage[data-y="bottom"] { align-items: flex-end; }
+
+.r-icon { position: relative; display: grid; place-items: center; flex: none; isolation: isolate; }
+.r-icon img, .r-tile { position: relative; z-index: 1; display: block; width: 100%; height: 100%; }
+.r-tile { display: grid; place-items: center; background: #0b0c0e; color: #f2c14e; }
+.r-empty { background: var(--surface-2); }
+.r-icon.rare::before {
+  content: ""; position: absolute; inset: -48%; z-index: 0; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, transparent 0deg 10deg, var(--ray) 14deg, transparent 18deg 36deg);
+  mask: radial-gradient(circle, #000 22%, transparent 66%);
+  animation: r-spin var(--rare-spin) linear infinite;
+}
+.r-icon.rare::after {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .6) 50%, transparent 62%) no-repeat;
+  background-size: 260% 100%; background-position: 160% 0; box-shadow: inset 0 0 4px 0 var(--inner);
+  animation: r-glint var(--rare-glint) var(--ease-glint) infinite;
+}
+.r-rim {
+  position: absolute; inset: -1px; z-index: 0; pointer-events: none; filter: blur(1px); box-shadow: 0 0 6px 0 var(--halo);
+  background: conic-gradient(from 210deg, var(--rim-lo), var(--rim-hi) 16%, var(--rim-lo) 36%, var(--rim-mid) 54%, var(--rim-hi) 70%, var(--rim-lo) 88%);
+  animation: r-breathe var(--rare-pulse) ease-in-out infinite;
+}
+@keyframes r-spin { to { transform: rotate(1turn); } }
+@keyframes r-breathe { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+@keyframes r-glint { 0%, 72% { background-position: 160% 0; } 100% { background-position: -60% 0; } }
+
+.mn { position: relative; }
+.mn-card {
+  position: relative; isolation: isolate; display: flex; align-items: center; box-sizing: border-box;
+  height: var(--sq); width: var(--sq); border-radius: 4px; background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--card-shadow); color: var(--text);
+  opacity: 0; transform: translateY(26px) scale(.9); transition: width 560ms var(--ease-smooth);
+}
+.mn.in .mn-card { opacity: 1; transform: none; transition: opacity 220ms ease, transform 520ms var(--ease-pop), width 560ms var(--ease-smooth); }
+.mn.open .mn-card { width: var(--w); }
+.mn:where([data-kind="platinum"]).open .mn-card { width: var(--w-plat); }
+.mn.close .mn-card { width: var(--sq); transition: width 440ms var(--ease-inout), opacity 220ms ease, transform 520ms var(--ease-pop); }
+.mn.out .mn-card { opacity: 0; transform: translateY(26px) scale(.9); transition: opacity 300ms var(--ease-in), transform 340ms var(--ease-in), width 0s; }
+.mn.out .mn-icon { opacity: 0; transform: scale(.55); transition: opacity 220ms var(--ease-in), transform 300ms var(--ease-in); }
+
+.mn-square { position: relative; flex: none; width: calc(var(--sq) - 2px); height: 100%; display: grid; place-items: center; }
+.r-icon.mn-icon { width: 56px; height: 56px; opacity: 0; transform: scale(.55); }
+.mn.in .mn-icon { opacity: 1; transform: none; transition: opacity 200ms ease 90ms, transform 560ms var(--ease-pop) 90ms; }
+.mn-icon .r-tile svg { width: 34px; height: 34px; }
+.mn-body { position: relative; flex: 1; min-width: 0; height: 100%; overflow: hidden; margin-right: 14px; }
+.mn-ph { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.mn-ph > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mn-a > * { opacity: 0; translate: -10px 0; }
+.mn.open .mn-a > * { opacity: 1; translate: 0 0; transition: opacity 260ms ease, translate 440ms var(--ease-smooth); }
+.mn.open .mn-a > :nth-child(1) { transition-delay: 180ms; }
+.mn.open .mn-a > :nth-child(2) { transition-delay: 235ms; }
+.mn.open .mn-a > :nth-child(3) { transition-delay: 290ms; }
+.mn.flip .mn-a > * { opacity: 0; translate: 0 14px; transition: opacity 200ms ease, translate 300ms var(--ease-in); }
+.mn.flip .mn-a > :nth-child(3) { transition-delay: 0ms; }
+.mn.flip .mn-a > :nth-child(2) { transition-delay: 40ms; }
+.mn.flip .mn-a > :nth-child(1) { transition-delay: 80ms; }
+.mn-b { opacity: 0; translate: 0 -14px; }
+.mn.flip .mn-b { opacity: 1; translate: 0 0; transition: opacity 260ms ease 180ms, translate 460ms var(--ease-smooth) 180ms; }
+.mn.clear .mn-b { opacity: 0; translate: 0 14px; transition: opacity 200ms ease, translate 300ms var(--ease-in); }
+.mn.close .mn-a > * { opacity: 0; transition: none; }
+.mn-ph small { font-size: 12px; color: var(--muted); }
+.mn-ph b { font-size: 15px; font-weight: 650; }
+.mn-ph span { font-size: 12px; color: var(--dim); }
+.mn-ph .mn-desc { font-size: 13.5px; color: var(--text); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+.mn .r-icon.rare::before { opacity: 0; scale: .3; }
+.mn.ignite .r-icon.rare::before { opacity: 1; scale: 1; transition: opacity 500ms ease, scale 900ms var(--ease-smooth); }
+.mn .r-icon.rare .r-rim { opacity: 0; }
+.mn.ignite .r-icon.rare .r-rim { animation: mn-ignite 900ms ease-out both, r-breathe var(--rare-pulse) ease-in-out 900ms infinite; }
+.mn.out .r-icon.rare::before, .mn.out .r-icon.rare .r-rim { opacity: 0; transition: opacity 200ms var(--ease-in); }
+@keyframes mn-ignite { 0% { opacity: 0; filter: blur(1px) brightness(1); } 35% { opacity: 1; filter: blur(1px) brightness(2.4); } 100% { opacity: .75; filter: blur(1px) brightness(1); } }
+.mn-ring { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border: 1.5px solid var(--rim-hi); opacity: 0; pointer-events: none; }
+.mn.ignite .mn-ring { animation: mn-ring 900ms var(--ease-smooth) both; }
+.mn.ignite .mn-ring.two { animation-delay: 380ms; }
+@keyframes mn-ring { 0% { opacity: .9; scale: 1; } 100% { opacity: 0; scale: 2.1; } }
+
+.mn-edge {
+  position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none; opacity: 0;
+  background: conic-gradient(from var(--edge), transparent 0deg 250deg, var(--rim-hi) 300deg, transparent 340deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.mn[data-kind="rare"].open .mn-edge { animation: mn-edge 1500ms var(--ease-inout) 250ms both; }
+@keyframes mn-edge { 0% { opacity: 0; --edge: 0deg; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; --edge: 360deg; } }
+
+.mn[data-kind="platinum"] .mn-coin svg { transform-origin: 50% 50%; }
+.mn[data-kind="platinum"].ignite .mn-coin svg { animation: mn-coin 1100ms var(--ease-smooth) both; }
+@keyframes mn-coin { 0% { transform: perspective(220px) rotateY(0) scale(1); } 45% { transform: perspective(220px) rotateY(400deg) scale(1.38); } 100% { transform: perspective(220px) rotateY(720deg) scale(1); } }
+.mn[data-kind="platinum"].ignite .r-icon.rare::before { inset: -80%; transition: opacity 500ms ease, scale 1100ms var(--ease-smooth); }
+.mn-art {
+  position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: center / cover no-repeat; opacity: 0;
+  -webkit-mask: linear-gradient(90deg, transparent 30%, #000 100%); mask: linear-gradient(90deg, transparent 30%, #000 100%);
+}
+.mn[data-kind="platinum"].open .mn-art { opacity: .22; transition: opacity 900ms ease 300ms; }
+.mn[data-kind="platinum"] .mn-card::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: radial-gradient(130% 75% at 50% 130%, var(--plat-glow), transparent 62%); opacity: 0; }
+.mn[data-kind="platinum"].open .mn-card::after { opacity: 1; transition: opacity 900ms ease 300ms; }
+.mn[data-kind="platinum"] .mn-card::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
+  background: linear-gradient(110deg, transparent 40%, rgba(255, 226, 150, .2) 50%, transparent 60%) no-repeat; background-size: 250% 100%; background-position: 170% 0;
+}
+.mn[data-kind="platinum"].open .mn-card::before { opacity: 1; background-position: -70% 0; transition: background-position 1300ms var(--ease-glint) 500ms, opacity 100ms ease 500ms; }
+.mn-ph .mn-strip { display: flex; gap: 4px; margin-top: 4px; overflow: visible; }
+.r-icon.mn-mini { width: 22px; height: 22px; opacity: 0; transform: translateY(6px) scale(.6); }
+.mn.flip .mn-mini { opacity: 1; transform: none; transition: opacity 200ms ease, transform 460ms var(--ease-pop); transition-delay: calc(260ms + var(--i) * 60ms); }
+.mn.clear .mn-mini { opacity: 0; transform: translateY(8px) scale(.7); transition: opacity 180ms ease, transform 260ms var(--ease-in); transition-delay: calc((var(--n) - 1 - var(--i)) * 25ms); }
+
+.mn-pill {
+  display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px 0 8px; box-sizing: border-box; border-radius: 4px;
+  background: var(--surface); border: 1px solid var(--line); color: var(--text); box-shadow: 0 12px 28px rgba(0, 0, 0, .3);
+  white-space: nowrap; opacity: 0; transform: translateY(12px);
+}
+.mn-progress.in .mn-pill { opacity: 1; transform: none; transition: opacity 220ms ease, transform 360ms var(--ease-smooth); }
+.mn-progress.out .mn-pill { opacity: 0; transform: translateY(8px); transition: opacity 220ms var(--ease-in), transform 220ms var(--ease-in); }
+.r-icon.mn-picon { width: 28px; height: 28px; }
+.mn-pill b { font-size: 13.5px; font-weight: 600; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.mn-count { display: flex; align-items: baseline; gap: 5px; font-size: 13px; color: var(--muted); }
+.mn-odo { position: relative; display: inline-grid; height: 1.25em; overflow: hidden; font-weight: 700; color: var(--text); }
+.mn-odo i { grid-area: 1 / 1; font-style: normal; text-align: right; transition: translate 420ms var(--ease-smooth), opacity 300ms ease; }
+.mn-odo i:last-child { translate: 0 100%; opacity: 0; }
+.mn-progress.tick .mn-odo i:first-child { translate: 0 -100%; opacity: 0; }
+.mn-progress.tick .mn-odo i:last-child { translate: 0 0; opacity: 1; }
+.mn-count em { font-style: normal; }
+
+@media (prefers-reduced-motion: reduce) {
+  #stage .mn *, #stage .mn *::before, #stage .mn *::after { transition: none; animation: none; }
+}
+</style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="aw-logo" viewBox="0 0 256 256"><g transform="translate(0.000000,256.000000) scale(0.100000,-0.100000)" fill="currentColor"><path d="M1253 2410 c-21 -50 -22 -50 -67 -50 -24 0 -47 -4 -51 -9 -3 -6 12 -24 34 -41 l39 -32 -13 -49 c-7 -27 -9 -51 -4 -54 4 -3 26 6 49 21 l40 27 41 -27 c22 -15 44 -25 47 -21 3 3 1 28 -4 55 l-10 50 38 30 c21 17 36 35 33 41 -4 5 -27 9 -51 9 -45 0 -46 0 -67 50 -11 28 -24 50 -27 50 -3 0 -16 -22 -27 -50z"/><path d="M742 2325 c-71 -48 -127 -109 -167 -180 -35 -65 -71 -163 -61 -172 8 -8 134 101 174 151 61 75 132 219 113 230 -4 3 -31 -10 -59 -29z"/><path d="M1756 2352 c-9 -15 55 -149 102 -209 48 -63 178 -180 188 -170 18 18 -63 192 -119 257 -50 58 -161 138 -171 122z"/><path d="M481 2291 c-55 -81 -80 -149 -89 -241 -8 -82 -5 -160 7 -160 13 0 89 143 112 210 24 74 39 250 21 250 -6 0 -29 -27 -51 -59z"/><path d="M2022 2258 c3 -57 14 -119 27 -158 23 -67 99 -210 112 -210 25 0 10 212 -21 289 -24 61 -96 171 -112 171 -7 0 -9 -29 -6 -92z"/><path d="M950 2303 c-10 -27 -17 -33 -41 -33 -34 0 -37 -10 -10 -34 15 -14 18 -26 14 -53 l-6 -35 27 17 c27 18 29 18 58 0 l31 -18 -7 35 c-5 27 -2 38 14 53 27 25 25 35 -8 35 -22 0 -32 7 -44 33 l-16 32 -12 -32z"/><path d="M1580 2300 c-10 -24 -19 -30 -41 -30 -34 0 -37 -10 -9 -35 16 -15 19 -26 14 -53 l-7 -35 31 18 c29 18 31 18 58 0 l27 -17 -6 35 c-4 27 -1 39 14 53 27 24 24 34 -10 34 -23 0 -31 6 -40 30 -5 17 -12 30 -14 30 -3 0 -10 -13 -17 -30z"/><path d="M271 2077 c-34 -90 -43 -144 -38 -226 5 -86 44 -226 62 -226 17 0 43 138 44 230 1 60 -5 113 -18 159 -23 83 -36 100 -50 63z"/><path d="M2261 2083 c-23 -44 -41 -146 -40 -229 1 -94 27 -230 44 -227 6 1 21 32 34 70 32 91 35 249 7 336 -21 65 -31 76 -45 50z"/><path d="M634 2007 c-87 -46 -130 -82 -179 -151 -39 -55 -85 -137 -85 -151 0 -27 152 70 222 142 68 70 140 194 111 193 -5 -1 -35 -15 -69 -33z"/><path d="M1850 2027 c0 -24 70 -131 118 -180 70 -72 222 -169 222 -142 0 14 -46 96 -85 150 -50 71 -98 111 -183 154 -70 35 -72 36 -72 18z"/><path d="M930 1925 c-9 -10 -10 -34 -6 -79 l7 -63 -68 4 c-64 5 -71 3 -101 -22 -43 -36 -56 -86 -38 -153 26 -102 123 -200 278 -282 75 -39 88 -51 129 -113 l47 -70 -35 -45 c-49 -65 -136 -249 -137 -292 l-1 -35 275 0 275 0 -1 35 c-1 43 -88 227 -137 292 l-35 45 47 70 c41 62 54 74 129 113 155 82 252 180 278 282 18 67 5 117 -38 153 -30 25 -37 27 -101 22 l-68 -4 7 63 c4 45 3 69 -6 79 -19 22 -681 22 -700 0z m20 -280 c0 -14 42 -159 55 -190 11 -24 -108 67 -130 101 -23 36 -20 93 7 103 28 10 68 2 68 -14z m748 -28 c2 -21 -4 -46 -13 -60 -22 -35 -141 -127 -130 -102 13 32 55 176 55 190 0 16 36 24 65 14 14 -4 21 -17 23 -42z"/><path d="M82 1789 c6 -111 24 -169 84 -265 44 -72 70 -101 80 -91 10 10 -16 187 -38 253 -22 67 -93 185 -117 192 -11 4 -13 -13 -9 -89z"/><path d="M2430 1839 c-65 -90 -102 -200 -115 -338 -8 -93 2 -92 71 11 65 98 85 160 92 276 5 106 -2 114 -48 51z"/><path d="M417 1678 c-73 -99 -113 -210 -122 -345 l-6 -88 36 40 c47 51 112 184 125 254 13 68 13 158 1 166 -5 3 -21 -9 -34 -27z"/><path d="M2107 1704 c-10 -10 -9 -102 3 -165 13 -70 78 -203 125 -254 l36 -40 -5 81 c-8 103 -28 183 -67 261 -36 70 -81 128 -92 117z"/><path d="M50 1537 c0 -44 38 -157 70 -211 38 -62 165 -194 177 -183 9 10 -32 137 -70 215 -28 59 -148 202 -168 202 -5 0 -9 -10 -9 -23z"/><path d="M2428 1491 c-67 -73 -112 -151 -147 -260 -23 -70 -26 -91 -13 -91 16 0 149 145 177 194 44 75 81 226 56 226 -5 0 -38 -31 -73 -69z"/><path d="M390 1298 c-6 -18 -14 -72 -17 -119 -5 -72 -2 -99 17 -160 28 -94 69 -174 81 -162 18 18 22 223 6 294 -15 63 -61 179 -70 179 -3 0 -10 -15 -17 -32z"/><path d="M2125 1275 c-45 -100 -58 -177 -51 -299 3 -61 10 -114 15 -119 12 -12 52 66 80 157 25 80 27 177 7 255 -8 29 -17 56 -20 59 -3 3 -17 -21 -31 -53z"/><path d="M0 1232 c0 -18 81 -133 121 -172 56 -54 249 -150 249 -124 0 16 -106 148 -151 188 -71 64 -219 136 -219 108z"/><path d="M2462 1205 c-39 -20 -93 -56 -121 -81 -45 -40 -151 -172 -151 -188 0 -25 191 69 247 123 40 38 123 154 123 173 0 15 -27 8 -98 -27z"/><path d="M540 924 c0 -57 33 -166 68 -223 46 -77 156 -191 160 -168 6 29 -38 169 -74 237 -34 64 -127 180 -145 180 -5 0 -9 -11 -9 -26z"/><path d="M1951 893 c-28 -32 -66 -87 -85 -123 -36 -69 -80 -208 -74 -238 4 -23 111 90 160 169 47 78 88 249 59 249 -5 0 -32 -26 -60 -57z"/><path d="M2317 905 c-38 -13 -93 -38 -122 -56 -60 -36 -203 -174 -192 -185 12 -12 115 16 186 52 87 43 231 191 204 207 -5 3 -39 -6 -76 -18z"/><path d="M169 901 c30 -55 135 -152 202 -185 72 -36 174 -64 187 -52 4 4 -32 45 -79 91 -92 89 -193 147 -278 161 -42 7 -43 6 -32 -15z"/><path d="M840 663 c0 -5 14 -31 30 -60 47 -82 123 -149 225 -199 132 -64 140 -60 72 32 -64 88 -142 152 -233 196 -86 40 -94 43 -94 31z"/><path d="M1625 632 c-50 -24 -103 -60 -141 -95 -61 -56 -142 -162 -132 -172 3 -3 24 2 47 10 125 44 235 131 292 230 45 79 45 79 -66 27z"/><path d="M301 631 c-25 -3 -46 -11 -48 -16 -4 -14 90 -68 157 -91 81 -26 300 -23 300 5 0 10 -142 75 -196 90 -50 13 -154 19 -213 12z"/><path d="M2120 633 c-84 -12 -270 -84 -270 -104 0 -13 69 -23 160 -23 96 0 166 19 248 68 77 45 72 52 -38 59 -41 2 -86 2 -100 0z"/><path d="M620 435 c-80 -23 -124 -41 -128 -53 -6 -19 107 -46 193 -47 61 0 100 7 165 28 137 45 140 52 33 73 -85 17 -204 16 -263 -1z"/><path d="M1673 436 c-103 -21 -99 -29 37 -73 65 -21 104 -28 165 -28 86 1 199 28 193 47 -3 7 -35 23 -74 36 -84 30 -227 38 -321 18z"/><path d="M913 325 c-67 -18 -183 -71 -183 -83 0 -30 180 -42 265 -17 67 19 195 81 195 94 0 24 -194 28 -277 6z"/><path d="M1393 333 c-38 -7 -27 -21 45 -57 108 -54 172 -69 271 -63 90 5 121 13 121 29 0 13 -114 64 -185 83 -55 14 -198 19 -252 8z"/><path d="M1152 219 c-12 -5 -27 -20 -34 -34 -10 -22 -8 -30 9 -53 24 -33 58 -40 84 -16 19 17 25 59 11 80 -14 21 -47 32 -70 23z"/><path d="M1370 222 c-41 -12 -54 -77 -21 -106 26 -24 60 -17 85 17 19 26 19 30 6 54 -16 28 -46 43 -70 35z"/></g></symbol></svg>
+    <div id="stage"></div>
+    <script>
+(() => {
+  const TIMES = {
+    unlock: { ignite: 0, open: 620, flip: 3100, clear: 5700, close: 6050, out: 6550, end: 6950 },
+    rare: { ignite: 420, open: 1150, flip: 3700, clear: 6400, close: 6750, out: 7250, end: 7650 },
+    platinum: { ignite: 420, open: 1500, flip: 4100, clear: 7300, close: 7700, out: 8200, end: 8600 },
+  };
+  const PROGRESS = { tick: 650, out: 2600, end: 2900 };
+  const STEPS = ["open", "flip", "clear", "close", "out"];
+  const SWOOSH = { in: "swoosh-in.wav", open: "swoosh-open.wav", close: "swoosh-close.wav", out: "swoosh-out.wav" };
+  const KINDS = ["unlock", "rare", "platinum", "progress"];
+  const SFX_GAIN = 0.45;
+  const MAX_ICONS = 12;
+  const stage = document.getElementById("stage");
+  let timers = [];
+  let sound = { enabled: false, volume: 1 };
+
+  const make = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+
+  const play = (file) => {
+    if (!sound.enabled) return;
+    const audio = new Audio(file);
+    audio.volume = Math.max(0, Math.min(1, sound.volume * SFX_GAIN));
+    audio.play().catch(() => {});
+  };
+
+  const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+
+  const reset = () => {
+    for (const timer of timers) clearTimeout(timer);
+    timers = [];
+    stage.replaceChildren();
+  };
+
+  const icon = (src, options) => {
+    const glow = options.rare || options.platinum;
+    const wrap = make("span", `r-icon ${options.className}${glow ? " rare" : ""}`);
+    if (glow) wrap.append(make("i", "r-rim"));
+    if (options.platinum) {
+      const tile = make("span", "r-tile mn-coin");
+      tile.innerHTML = '<svg viewBox="0 0 256 256" aria-hidden="true"><use href="#aw-logo"/></svg>';
+      wrap.append(tile);
+    } else if (src) {
+      const image = make("img");
+      image.alt = "";
+      image.src = src;
+      wrap.append(image);
+    } else {
+      wrap.append(make("span", "r-tile r-empty"));
+    }
+    return wrap;
+  };
+
+  const kindOf = (data) => {
+    if (KINDS.includes(data.kind)) return data.kind;
+    if (data.platinum) return "platinum";
+    return data.rare ? "rare" : "unlock";
+  };
+
+  const card = (data, kind) => {
+    const labels = data.labels || {};
+    const platinum = kind === "platinum";
+    const root = make("div", "mn");
+    root.dataset.kind = kind;
+    const box = make("div", "mn-card");
+    if (platinum && data.gameArt) {
+      const art = make("i", "mn-art");
+      art.style.backgroundImage = `url("${data.gameArt}")`;
+      box.append(art);
+    }
+    if (kind === "rare") box.append(make("i", "mn-edge"));
+    const square = make("div", "mn-square");
+    if (kind !== "unlock") square.append(make("i", "mn-ring"));
+    if (platinum) square.append(make("i", "mn-ring two"));
+    square.append(icon(data.icon || data.iconPath, { className: "mn-icon", rare: kind === "rare", platinum }));
+    const first = make("div", "mn-ph mn-a");
+    const label = { unlock: labels.unlocked, rare: labels.rare, platinum: labels.platinum }[kind];
+    const meta = platinum ? labels.allUnlocked : data.percent != null ? labels.players : "";
+    first.append(
+      make("small", "", label || data.unlockedLabel || ""),
+      make("b", "", (platinum ? data.game : data.displayName) || ""),
+      make("span", "", meta || ""),
+    );
+    const second = make("div", "mn-ph mn-b");
+    if (platinum) {
+      second.append(make("small", "", labels.platinumDone || ""));
+      const strip = make("span", "mn-strip");
+      const icons = (data.achievementIcons || []).slice(0, MAX_ICONS);
+      strip.style.setProperty("--n", String(icons.length));
+      icons.forEach((src, index) => {
+        const mini = icon(src, { className: "mn-mini" });
+        mini.style.setProperty("--i", String(index));
+        strip.append(mini);
+      });
+      second.append(strip);
+    } else {
+      second.append(make("span", "mn-desc", data.description || ""));
+    }
+    const body = make("div", "mn-body");
+    body.append(first, second);
+    box.append(square, body);
+    root.append(box);
+    return root;
+  };
+
+  const progress = (data) => {
+    const labels = data.labels || {};
+    const current = data.progress ? data.progress.current : 0;
+    const max = data.progress ? data.progress.max : 0;
+    const text = labels.progressOf || `${current} ${max}`;
+    const number = String(current);
+    const index = text.indexOf(number);
+    const root = make("div", "mn mn-progress");
+    const pill = make("div", "mn-pill");
+    pill.append(icon(data.icon || data.iconPath, { className: "mn-picon" }), make("b", "", data.displayName || ""));
+    const count = make("span", "mn-count");
+    if (index > 0) count.append(make("em", "", text.slice(0, index).trim()));
+    const odometer = make("span", "mn-odo");
+    odometer.append(make("i", "", String(Math.max(0, current - 1))), make("i", "", number));
+    count.append(odometer, make("em", "", index >= 0 ? text.slice(index + number.length).trim() : text));
+    pill.append(count);
+    root.append(pill);
+    stage.append(root);
+    void root.offsetWidth;
+    root.classList.add("in");
+    at(PROGRESS.tick, () => {
+      root.classList.add("tick");
+      play("click.wav");
+    });
+    at(PROGRESS.out, () => root.classList.add("out"));
+    at(PROGRESS.end, reset);
+  };
+
+  const show = (data = {}) => {
+    reset();
+    const [y, x] = (data.position || "middle-center").split("-");
+    stage.dataset.x = x;
+    stage.dataset.y = y;
+    sound = {
+      enabled: data.soundEnabled !== false,
+      volume: typeof data.soundVolume === "number" ? data.soundVolume : 1,
+    };
+    document.documentElement.dataset.theme = data.theme === "light" ? "light" : "dark";
+    if (typeof data.scale === "number" && data.scale > 0) document.documentElement.style.zoom = String(data.scale);
+    const kind = kindOf(data);
+    if (kind === "progress") {
+      progress(data);
+      return;
+    }
+    const root = card(data, kind);
+    stage.append(root);
+    void root.offsetWidth;
+    root.classList.add("in");
+    play(SWOOSH.in);
+    const times = TIMES[kind];
+    if (kind !== "unlock") at(times.ignite, () => root.classList.add("ignite"));
+    for (const step of STEPS) {
+      at(times[step], () => {
+        root.classList.add(step);
+        if (SWOOSH[step]) play(SWOOSH[step]);
+      });
+    }
+    at(times.end, reset);
+  };
+
+  if (window.api && typeof window.api.onNotification === "function") window.api.onNotification(show);
+  else window.__awShow = show;
+})();
+</script>
+  </body>
+</html>

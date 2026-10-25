@@ -1,0 +1,9 @@
+{
+  "name": "PlayStation 5",
+  "author": "Achievement Watcher",
+  "version": "2.0.0",
+  "width": 522,
+  "height": 140,
+  "bleed": [36, 36],
+  "duration": 6.0
+}
