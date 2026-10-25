@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArtImage } from "../../components/ArtImage";
-import { OriginTag } from "../../components/OriginTag";
+import { ArtTag } from "../../components/ArtTag";
 import { useI18n } from "../../i18n/useI18n";
 import { completionPercent } from "../../lib/achievements";
 import { cn } from "../../lib/cn";
@@ -37,7 +37,12 @@ export function GameCard({ game, onOpen }: GameCardProps) {
         <ArtImage src={game.headerUrl} />
         {game.origin && (
           <div className="absolute top-2 left-2 flex gap-1">
-            <OriginTag origin={game.origin} />
+            <ArtTag>{game.origin}</ArtTag>
+          </div>
+        )}
+        {game.playtimeSeconds > 0 && (
+          <div className="absolute top-2 right-2 flex">
+            <ArtTag icon="clock">{formatHours(game.playtimeSeconds, locale)}</ArtTag>
           </div>
         )}
       </div>
@@ -58,9 +63,6 @@ export function GameCard({ game, onOpen }: GameCardProps) {
             {known ? `${percent}%` : game.unlocked}
           </strong>
           <span>{detail}</span>
-          {game.playtimeSeconds > 0 && (
-            <span className="ml-auto">{formatHours(game.playtimeSeconds, locale)}</span>
-          )}
         </div>
         <div className="mt-[11px] flex flex-col gap-[7px] border-line border-t pt-2.5">
           <RecentStrip game={game} onOpen={open} />
