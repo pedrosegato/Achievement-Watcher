@@ -9,16 +9,42 @@ const toDate = (seconds: number) => new Date(seconds * 1000);
 
 const isPortuguese = (locale: Locale) => locale.toLowerCase().startsWith("pt");
 
-function formatNumber(locale: Locale, value: number, min: number, max: number): string {
-  return new Intl.NumberFormat(locale, {
-    minimumFractionDigits: min,
-    maximumFractionDigits: max,
-  }).format(value);
+const DAY: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" };
+const TIME: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
+
+const numberFormats = new Map<string, Intl.NumberFormat>();
+const dateFormats = new Map<string, Intl.DateTimeFormat>();
+
+function numberFormat(locale: Locale, min: number, max: number): Intl.NumberFormat {
+  const key = `${locale}|${min}|${max}`;
+  let format = numberFormats.get(key);
+  if (!format) {
+    format = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: min,
+      maximumFractionDigits: max,
+    });
+    numberFormats.set(key, format);
+  }
+  return format;
 }
 
-function dateParts(seconds: number, locale: Locale, options: Intl.DateTimeFormatOptions) {
+function dateFormat(locale: Locale, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${options === DAY ? "day" : "time"}`;
+  let format = dateFormats.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, options);
+    dateFormats.set(key, format);
+  }
+  return format;
+}
+
+function formatNumber(locale: Locale, value: number, min: number, max: number): string {
+  return numberFormat(locale, min, max).format(value);
+}
+
+function dateParts(seconds: number, locale: Locale) {
   const parts: Partial<Record<Intl.DateTimeFormatPartTypes, string>> = {};
-  for (const part of new Intl.DateTimeFormat(locale, options).formatToParts(toDate(seconds))) {
+  for (const part of dateFormat(locale, DAY).formatToParts(toDate(seconds))) {
     parts[part.type] = part.value;
   }
   return parts;
@@ -39,19 +65,13 @@ export function formatHours(seconds: number, locale: Locale): string {
 }
 
 export function formatDay(seconds: number, locale: Locale): string {
-  const { day, month, year } = dateParts(seconds, locale, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const { day, month, year } = dateParts(seconds, locale);
   const shortMonth = (month ?? "").replace(".", "");
   return isPortuguese(locale) ? `${day} ${shortMonth} ${year}` : `${shortMonth} ${day}, ${year}`;
 }
 
 export function formatTime(seconds: number, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" })
-    .format(toDate(seconds))
-    .replace(/\s/g, " ");
+  return dateFormat(locale, TIME).format(toDate(seconds)).replace(/\s/g, " ");
 }
 
 export function formatDateTime(seconds: number, locale: Locale): string {

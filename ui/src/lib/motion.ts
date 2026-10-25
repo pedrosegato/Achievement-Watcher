@@ -10,12 +10,23 @@ export function parseDuration(raw: string): number {
   return text.endsWith("s") ? value * MS_PER_SECOND : 0;
 }
 
-function readMotionMs(token: string): number {
-  if (typeof document === "undefined") return 0;
-  return parseDuration(getComputedStyle(document.documentElement).getPropertyValue(token));
+const tokens = new Map<string, number>();
+
+function readToken(token: string): string {
+  if (typeof document === "undefined") return "";
+  return getComputedStyle(document.documentElement).getPropertyValue(token);
+}
+
+export function motionMs(token: string, read: (token: string) => string = readToken): number {
+  let ms = tokens.get(token);
+  if (ms === undefined) {
+    ms = parseDuration(read(token));
+    tokens.set(token, ms);
+  }
+  return ms;
 }
 
 export function useMotionMs(token: string): number {
-  const [ms] = useState(() => readMotionMs(token));
+  const [ms] = useState(() => motionMs(token));
   return ms;
 }

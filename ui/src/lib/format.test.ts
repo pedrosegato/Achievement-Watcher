@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatDateTime, formatDay, formatHours, formatPercent } from "./format";
 
 const SAMPLE = 1775507489;
@@ -39,5 +39,24 @@ describe("dates", () => {
   it("formats a day without the time", () => {
     expect(formatDay(SAMPLE, "pt-BR")).toBe("6 abr 2026");
     expect(formatDay(SAMPLE, "en")).toBe("Apr 6, 2026");
+  });
+});
+
+describe("formatter reuse", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("builds no new Intl formatter once a locale is warm", () => {
+    formatDateTime(SAMPLE, "pt-BR");
+    formatPercent(7.2, "pt-BR");
+    formatHours(36_000, "pt-BR");
+    const dates = vi.spyOn(Intl, "DateTimeFormat");
+    const numbers = vi.spyOn(Intl, "NumberFormat");
+    for (let i = 0; i < 50; i += 1) {
+      formatDateTime(SAMPLE + i * 60, "pt-BR");
+      formatPercent(i / 3, "pt-BR");
+      formatHours(36_000 + i, "pt-BR");
+    }
+    expect(dates).not.toHaveBeenCalled();
+    expect(numbers).not.toHaveBeenCalled();
   });
 });
