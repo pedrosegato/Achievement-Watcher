@@ -101,10 +101,11 @@ export function LibraryPage({ query, onSearch, scanning, onRescan, onOpen }: Lib
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="mr-auto flex items-center gap-3">
+        <div className="mr-auto flex items-center gap-6">
           <h1 className="font-bold text-[22px] tracking-[-0.01em]">{t("library.title")}</h1>
           {games && mixed && (
             <Segmented
+              variant="tabs"
               label={t("library.scope.label")}
               options={scopes}
               value={activeScope}
