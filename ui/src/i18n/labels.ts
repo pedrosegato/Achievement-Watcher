@@ -3,6 +3,7 @@ import type {
   Position,
   PreviewKind,
   SoundEvent,
+  VideoFormat,
   VideoQuality,
 } from "../types/domain";
 import type { Key } from "./dictionary";
@@ -39,6 +40,16 @@ export const QUALITY_LABELS: Record<VideoQuality, Key> = {
   light: "settings.quality.light",
   balanced: "settings.quality.balanced",
   high: "settings.quality.high",
+};
+
+export const FORMAT_LABELS: Record<VideoFormat, Key> = {
+  compatible: "settings.format.compatible",
+  small: "settings.format.small",
+};
+
+export const FORMAT_HINTS: Record<VideoFormat, Key> = {
+  compatible: "settings.format.compatibleHint",
+  small: "settings.format.smallHint",
 };
 
 export const QUALITY_HINTS: Record<VideoQuality, Key> = {

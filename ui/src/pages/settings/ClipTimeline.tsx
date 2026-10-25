@@ -3,13 +3,14 @@ import { Slider } from "../../components/ui/slider";
 import { RANGES } from "../../constants";
 import { useI18n } from "../../i18n/useI18n";
 import { clipSizeMb } from "../../lib/video";
-import type { VideoQuality } from "../../types/domain";
+import type { VideoFormat, VideoQuality } from "../../types/domain";
 
 interface ClipTimelineProps {
   before: number;
   after: number;
   fps: number;
   quality: VideoQuality;
+  format: VideoFormat;
   onCommit: (before: number, after: number) => void;
 }
 
@@ -25,7 +26,7 @@ function clampWindow([start, end]: number[], fallback: Window): Window {
   return [from, to];
 }
 
-export function ClipTimeline({ before, after, fps, quality, onCommit }: ClipTimelineProps) {
+export function ClipTimeline({ before, after, fps, quality, format, onCommit }: ClipTimelineProps) {
   const { t } = useI18n();
   const saved: Window = [-before, after];
   const [draft, setDraft] = useState<Window | null>(null);
@@ -62,7 +63,7 @@ export function ClipTimeline({ before, after, fps, quality, onCommit }: ClipTime
         <span>{t("settings.clipAfter", { n: end })}</span>
       </div>
       <span className="text-[12.5px] text-dim">
-        {t("settings.clipSize", { mb: clipSizeMb(end - start, fps, quality) })}
+        {t("settings.clipSize", { mb: clipSizeMb(end - start, fps, quality, format) })}
       </span>
     </div>
   );

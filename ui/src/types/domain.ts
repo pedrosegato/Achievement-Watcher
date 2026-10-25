@@ -5,6 +5,7 @@ import type {
   SOUND_EVENTS,
   THEMES,
   USER_FOLDERS,
+  VIDEO_FORMATS,
   VIDEO_QUALITIES,
 } from "../constants";
 
@@ -20,6 +21,7 @@ export interface LocaleInfo {
 export type SoundEvent = (typeof SOUND_EVENTS)[number];
 export type PreviewKind = (typeof PREVIEW_KINDS)[number];
 export type VideoQuality = (typeof VIDEO_QUALITIES)[number];
+export type VideoFormat = (typeof VIDEO_FORMATS)[number];
 export type AchievementFilter = (typeof ACHIEVEMENT_FILTERS)[number];
 export type UserFolder = (typeof USER_FOLDERS)[number];
 
@@ -117,6 +119,7 @@ export interface Settings {
   videoAfter: number;
   videoFps: number;
   videoQuality: VideoQuality;
+  videoFormat: VideoFormat;
   autoUpdate: boolean;
   ffmpegPath: string | null;
   videoDir: string | null;

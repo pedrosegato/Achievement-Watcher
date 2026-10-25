@@ -12,16 +12,23 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::app::AppState;
 use crate::loopback::{self, AudioFormat, Feed};
-use crate::settings::{Settings, VideoQuality};
+use crate::settings::{Settings, VideoFormat, VideoQuality};
 use crate::shot::{sanitize, unique_path};
 
 const FFMPEG_ZIP: &str = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
 const FFMPEG_SHA: &str = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256";
-const SEGMENT_SECONDS: u32 = 1;
+const FILES: usize = 3;
+const MIN_FILE_SECONDS: u32 = 60;
+const FILE_MARGIN: u32 = 30;
+const MUTED_EDGE_SECONDS: f64 = 0.15;
+const FADE_SECONDS: f64 = 0.1;
+const MAX_CAPTURE_FPS: u32 = 120;
+const RETIME_GAP_SECONDS: f64 = 0.05;
+const RETIME_SPACING: f64 = 0.99;
 const SEGMENT_LIST: &str = "segments.csv";
-const RING_SLACK: u32 = 3;
 const SAVE_SLACK: Duration = Duration::from_secs(1);
-const ENCODERS: [&str; 8] = [
+const COMPATIBLE_ENCODERS: [&str; 3] = ["h264_nvenc", "h264_amf", "h264_qsv"];
+const SMALL_ENCODERS: [&str; 8] = [
     "av1_nvenc",
     "av1_amf",
     "hevc_nvenc",
@@ -40,31 +47,44 @@ pub const FFMPEG_PROGRESS: &str = "ffmpeg-progress";
 pub struct CaptureOptions {
     pub fps: u32,
     pub quality: VideoQuality,
-    pub wrap: u32,
+    pub file_seconds: u32,
 }
 
 impl CaptureOptions {
     pub fn from_settings(settings: &Settings) -> CaptureOptions {
         CaptureOptions {
-            fps: settings.video_fps,
+            fps: capture_fps(settings.video_fps),
             quality: settings.video_quality,
-            wrap: ring_size(settings.video_before, settings.video_after),
+            file_seconds: file_seconds(settings.video_before, settings.video_after),
         }
     }
 }
 
 pub fn capture_changed(old: &Settings, new: &Settings) -> bool {
-    let shape = |s: &Settings| (s.video_fps, s.video_quality, s.video_before, s.video_after);
+    let shape = |s: &Settings| {
+        (
+            s.video_fps,
+            s.video_quality,
+            s.video_format,
+            s.video_before,
+            s.video_after,
+        )
+    };
     shape(old) != shape(new)
 }
 
-pub fn ring_size(before: u32, after: u32) -> u32 {
-    before + after + RING_SLACK
+pub fn capture_fps(fps: u32) -> u32 {
+    (fps * 2).min(MAX_CAPTURE_FPS).max(fps)
+}
+
+pub fn file_seconds(before: u32, after: u32) -> u32 {
+    (before + after + FILE_MARGIN).max(MIN_FILE_SECONDS)
 }
 
 struct Recorder {
     child: Child,
     dir: PathBuf,
+    started: SystemTime,
     app_id: u32,
     encoder: &'static str,
     audio: Option<Feed>,
@@ -84,7 +104,7 @@ pub struct FfmpegStatus {
 #[derive(Default)]
 pub struct VideoState {
     recorder: Mutex<Option<Recorder>>,
-    encoder: Mutex<Option<&'static str>>,
+    encoder: Mutex<HashMap<VideoFormat, &'static str>>,
     download: Mutex<FfmpegStatus>,
     cancel: AtomicBool,
 }
@@ -132,9 +152,18 @@ pub fn status(state: &AppState) -> FfmpegStatus {
     status
 }
 
-pub fn pick_encoder(available: &str, works: impl Fn(&str) -> bool) -> &'static str {
-    ENCODERS
-        .into_iter()
+pub fn pick_encoder(
+    available: &str,
+    format: VideoFormat,
+    works: impl Fn(&str) -> bool,
+) -> &'static str {
+    let candidates: &[&'static str] = match format {
+        VideoFormat::Compatible => &COMPATIBLE_ENCODERS,
+        VideoFormat::Small => &SMALL_ENCODERS,
+    };
+    candidates
+        .iter()
+        .copied()
         .find(|encoder| available.contains(encoder) && works(encoder))
         .unwrap_or("libx264")
 }
@@ -164,9 +193,9 @@ fn encoder_works(ffmpeg: &Path, encoder: &str) -> bool {
         .is_ok_and(|status| status.success())
 }
 
-fn encoder(state: &AppState, ffmpeg: &Path) -> &'static str {
+fn encoder(state: &AppState, ffmpeg: &Path, format: VideoFormat) -> &'static str {
     let mut cached = lock(&state.video.encoder);
-    if let Some(encoder) = *cached {
+    if let Some(encoder) = cached.get(&format) {
         return encoder;
     }
     let listed = command(ffmpeg)
@@ -174,9 +203,11 @@ fn encoder(state: &AppState, ffmpeg: &Path) -> &'static str {
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
         .unwrap_or_default();
-    let picked = pick_encoder(&listed, |candidate| encoder_works(ffmpeg, candidate));
-    tracing::info!("video encoder: {picked}");
-    *cached = Some(picked);
+    let picked = pick_encoder(&listed, format, |candidate| {
+        encoder_works(ffmpeg, candidate)
+    });
+    tracing::info!("video encoder for {format:?}: {picked}");
+    cached.insert(format, picked);
     picked
 }
 
@@ -187,7 +218,7 @@ pub fn prepare(app: &AppHandle) {
         .spawn(move || {
             let state = app.state::<AppState>();
             if let Some(ffmpeg) = ffmpeg_path(&state) {
-                encoder(&state, &ffmpeg);
+                encoder(&state, &ffmpeg, state.settings_snapshot().video_format);
             }
         });
     if let Err(error) = spawned {
@@ -244,7 +275,7 @@ pub fn capture_args(
     ]);
     if audio.is_some() {
         args.extend(
-            ["-c:a", "aac", "-b:a", "160k", "-ac", "2"]
+            ["-c:a", "pcm_s16le", "-ac", "2"]
                 .iter()
                 .map(|s| (*s).to_owned()),
         );
@@ -255,22 +286,24 @@ pub fn capture_args(
             "segment",
             "-segment_format",
             "matroska",
+            "-segment_format_options",
+            "cluster_time_limit=1000",
             "-segment_time",
         ]
         .iter()
         .map(|s| (*s).to_owned()),
     );
-    args.push(SEGMENT_SECONDS.to_string());
+    args.push(options.file_seconds.to_string());
     args.push("-segment_wrap".into());
-    args.push(options.wrap.to_string());
+    args.push(FILES.to_string());
     args.push("-reset_timestamps".into());
     args.push("1".into());
     args.push("-segment_list".into());
     args.push(segment_dir.join(SEGMENT_LIST).display().to_string());
     args.extend(["-segment_list_type".into(), "csv".into()]);
     args.push("-segment_list_size".into());
-    args.push(options.wrap.to_string());
-    args.push(segment_dir.join("seg%02d.mkv").display().to_string());
+    args.push(FILES.to_string());
+    args.push(segment_dir.join("seg%d.mkv").display().to_string());
     args
 }
 
@@ -331,7 +364,13 @@ fn encoder_args(encoder: &str, quality: VideoQuality) -> Vec<String> {
     args
 }
 
-pub fn save_args(list: &Path, target: &Path, encoder: &str) -> Vec<String> {
+pub fn save_args(
+    list: &Path,
+    target: &Path,
+    encoder: &str,
+    retime: Option<(u32, VideoQuality)>,
+    length: f64,
+) -> Vec<String> {
     let mut args: Vec<String> = [
         "-hide_banner",
         "-loglevel",
@@ -347,54 +386,112 @@ pub fn save_args(list: &Path, target: &Path, encoder: &str) -> Vec<String> {
     .map(|s| (*s).to_owned())
     .collect();
     args.push(list.display().to_string());
-    args.extend(["-c:v".to_owned(), "copy".to_owned()]);
+    match retime {
+        Some((fps, quality)) => {
+            let spacing = RETIME_SPACING / f64::from(fps);
+            args.push("-vf".into());
+            args.push(format!(
+                "mpdecimate,setpts='if(isnan(PREV_OUTPTS),PTS,if(gt(PTS-PREV_INPTS,{RETIME_GAP_SECONDS}/TB),PTS,min(PTS,PREV_OUTPTS+{spacing:.4}/TB)))',fps={fps}"
+            ));
+            args.extend(["-c:v".to_owned(), encoder.to_owned()]);
+            args.extend(encoder_args(encoder, quality));
+            args.extend([
+                "-pix_fmt".to_owned(),
+                "yuv420p".to_owned(),
+                "-g".to_owned(),
+                fps.to_string(),
+            ]);
+        }
+        None => args.extend(["-c:v".to_owned(), "copy".to_owned()]),
+    }
     if encoder.starts_with("hevc") {
         args.extend(["-tag:v".to_owned(), "hvc1".to_owned()]);
     }
     args.extend(
-        ["-c:a", "aac", "-b:a", "160k", "-af", "aresample=async=1"]
+        ["-c:a", "aac", "-b:a", "160k", "-af"]
             .iter()
             .map(|s| (*s).to_owned()),
     );
+    let fade_out = (length - MUTED_EDGE_SECONDS - FADE_SECONDS).max(0.0);
+    args.push(format!(
+        "aresample=async=1:first_pts=0,afade=t=in:st={MUTED_EDGE_SECONDS}:d={FADE_SECONDS},afade=t=out:st={fade_out:.3}:d={FADE_SECONDS}"
+    ));
     args.extend(["-movflags".to_owned(), "+faststart".to_owned()]);
     args.push(target.display().to_string());
     args
 }
 
-pub fn clip_segments(files: &[(PathBuf, SystemTime)], since: SystemTime) -> Vec<PathBuf> {
-    let mut recent: Vec<&(PathBuf, SystemTime)> = files
-        .iter()
-        .filter(|(_, modified)| *modified > since)
-        .collect();
-    recent.sort_by_key(|(_, modified)| *modified);
-    recent.into_iter().map(|(path, _)| path.clone()).collect()
+#[derive(Debug, Clone, PartialEq)]
+pub struct Recorded {
+    pub name: String,
+    pub start: f64,
+    pub end: f64,
 }
 
-pub fn segment_durations(list: &str) -> HashMap<String, f64> {
-    list.lines()
+#[derive(Debug, Clone, PartialEq)]
+pub struct Piece {
+    pub name: String,
+    pub inpoint: f64,
+    pub outpoint: f64,
+}
+
+pub fn recorded_files(list: &str) -> Vec<Recorded> {
+    let mut files: Vec<Recorded> = list
+        .lines()
         .filter_map(|line| {
             let mut fields = line.split(',');
-            let name = fields.next()?.trim();
-            let start: f64 = fields.next()?.trim().parse().ok()?;
-            let end: f64 = fields.next()?.trim().parse().ok()?;
-            Some((name.to_owned(), end - start))
+            let name = fields.next()?.trim().to_owned();
+            let start = fields.next()?.trim().parse().ok()?;
+            let end = fields.next()?.trim().parse().ok()?;
+            Some(Recorded { name, start, end })
+        })
+        .collect();
+    let (index, start) = files.last().map_or((0, 0.0), |last| {
+        let number = last
+            .name
+            .trim_start_matches("seg")
+            .trim_end_matches(".mkv")
+            .parse::<usize>()
+            .unwrap_or(0);
+        ((number + 1) % FILES, last.end)
+    });
+    files.push(Recorded {
+        name: format!("seg{index}.mkv"),
+        start,
+        end: f64::INFINITY,
+    });
+    files
+}
+
+pub fn clip_plan(files: &[Recorded], from: f64, to: f64) -> Vec<Piece> {
+    files
+        .iter()
+        .filter_map(|file| {
+            let begin = from.max(file.start);
+            let finish = to.min(file.end);
+            (finish > begin).then(|| Piece {
+                name: file.name.clone(),
+                inpoint: (begin - file.start).floor(),
+                outpoint: finish - file.start,
+            })
         })
         .collect()
 }
 
-pub fn concat_list(entries: &[(PathBuf, Option<f64>)]) -> String {
-    entries
+pub fn concat_list(dir: &Path, pieces: &[Piece]) -> String {
+    pieces
         .iter()
-        .map(|(path, duration)| {
-            let text = path
+        .map(|piece| {
+            let text = dir
+                .join(&piece.name)
                 .display()
                 .to_string()
                 .replace('\\', "/")
                 .replace('\'', "'\\''");
-            match duration {
-                Some(seconds) => format!("file '{text}'\nduration {seconds:.6}\n"),
-                None => format!("file '{text}'\n"),
-            }
+            format!(
+                "file '{text}'\ninpoint {:.6}\noutpoint {:.6}\n",
+                piece.inpoint, piece.outpoint
+            )
         })
         .collect()
 }
@@ -417,7 +514,7 @@ pub fn start(app: &AppHandle, app_id: u32) {
     if std::fs::create_dir_all(&dir).is_err() {
         return;
     }
-    let encoder = encoder(&state, &ffmpeg);
+    let encoder = encoder(&state, &ffmpeg, state.settings_snapshot().video_format);
     let options = CaptureOptions::from_settings(&state.settings_snapshot());
     let format = loopback::format();
     match command(&ffmpeg)
@@ -440,6 +537,7 @@ pub fn start(app: &AppHandle, app_id: u32) {
             *slot = Some(Recorder {
                 child,
                 dir,
+                started: SystemTime::now(),
                 app_id,
                 encoder,
                 audio,
@@ -477,8 +575,10 @@ pub fn clip(app: &AppHandle, app_id: u32, game: String, achievement: String) {
     let Some(ffmpeg) = ffmpeg_path(&state) else {
         return;
     };
-    let (dir, encoder) = match lock(&state.video.recorder).as_ref() {
-        Some(recorder) if recorder.app_id == app_id => (recorder.dir.clone(), recorder.encoder),
+    let (dir, encoder, started) = match lock(&state.video.recorder).as_ref() {
+        Some(recorder) if recorder.app_id == app_id => {
+            (recorder.dir.clone(), recorder.encoder, recorder.started)
+        }
         _ => return,
     };
     let root = settings.video_dir.clone().or_else(|| {
@@ -490,7 +590,13 @@ pub fn clip(app: &AppHandle, app_id: u32, game: String, achievement: String) {
     let Some(root) = root else {
         return;
     };
-    let since = SystemTime::now() - Duration::from_secs(u64::from(settings.video_before));
+    let now = SystemTime::now()
+        .duration_since(started)
+        .map_or(0.0, |elapsed| elapsed.as_secs_f64());
+    let retime = (capture_fps(settings.video_fps) != settings.video_fps)
+        .then_some((settings.video_fps, settings.video_quality));
+    let from = now - f64::from(settings.video_before);
+    let to = now + f64::from(settings.video_after);
     let wait = Duration::from_secs(u64::from(settings.video_after)) + SAVE_SLACK;
     let spawned = std::thread::Builder::new()
         .name("aw-video-clip".into())
@@ -499,8 +605,10 @@ pub fn clip(app: &AppHandle, app_id: u32, game: String, achievement: String) {
             let clip = Clip {
                 game: &game,
                 achievement: &achievement,
-                since,
+                from,
+                to,
                 encoder,
+                retime,
             };
             if let Err(error) = save_clip(&ffmpeg, &dir, &root, &clip) {
                 tracing::warn!("video clip failed: {error}");
@@ -514,40 +622,25 @@ pub fn clip(app: &AppHandle, app_id: u32, game: String, achievement: String) {
 struct Clip<'a> {
     game: &'a str,
     achievement: &'a str,
-    since: SystemTime,
+    from: f64,
+    to: f64,
     encoder: &'a str,
+    retime: Option<(u32, VideoQuality)>,
 }
 
 fn save_clip(ffmpeg: &Path, dir: &Path, root: &Path, clip: &Clip) -> Result<(), String> {
-    let files: Vec<(PathBuf, SystemTime)> = std::fs::read_dir(dir)
-        .map_err(|e| e.to_string())?
-        .flatten()
-        .filter(|e| e.path().extension().is_some_and(|x| x == "mkv"))
-        .filter_map(|e| Some((e.path(), e.metadata().ok()?.modified().ok()?)))
-        .collect();
-    let segments = clip_segments(&files, clip.since);
-    if segments.is_empty() {
-        return Err("no recorded segments yet".into());
+    let recorded = std::fs::read_to_string(dir.join(SEGMENT_LIST)).unwrap_or_default();
+    let pieces = clip_plan(&recorded_files(&recorded), clip.from, clip.to);
+    if pieces.is_empty() {
+        return Err("nothing recorded for this clip yet".into());
     }
-    let durations = std::fs::read_to_string(dir.join(SEGMENT_LIST))
-        .map(|list| segment_durations(&list))
-        .unwrap_or_default();
-    let entries: Vec<(PathBuf, Option<f64>)> = segments
-        .into_iter()
-        .map(|path| {
-            let duration = path
-                .file_name()
-                .and_then(|name| durations.get(&*name.to_string_lossy()))
-                .copied();
-            (path, duration)
-        })
-        .collect();
+    let length: f64 = pieces.iter().map(|p| p.outpoint - p.inpoint).sum();
     let list = dir.join("clip.txt");
-    std::fs::write(&list, concat_list(&entries)).map_err(|e| e.to_string())?;
+    std::fs::write(&list, concat_list(dir, &pieces)).map_err(|e| e.to_string())?;
     let out_dir = root.join(sanitize(clip.game));
     std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
     let target = unique_path(&out_dir, &sanitize(clip.achievement), "mp4");
-    run(command(ffmpeg).args(save_args(&list, &target, clip.encoder)))?;
+    run(command(ffmpeg).args(save_args(&list, &target, clip.encoder, clip.retime, length)))?;
     tracing::info!("video saved to {}", target.display());
     Ok(())
 }
@@ -707,7 +800,6 @@ fn download_blocking(
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};
-    use std::time::UNIX_EPOCH;
 
     #[test]
     fn copy_with_progress_reports_and_cancels() {
@@ -741,11 +833,11 @@ mod tests {
     }
 
     #[test]
-    fn capture_args_use_ring_of_segments() {
+    fn capture_args_record_long_files() {
         let options = CaptureOptions {
             fps: 30,
             quality: VideoQuality::Balanced,
-            wrap: 18,
+            file_seconds: 60,
         };
         let args = capture_args("h264_amf", Path::new(r"C:\tmp\rec"), &options, None);
         let joined = args.join(" ");
@@ -754,24 +846,24 @@ mod tests {
         ));
         assert!(joined.contains("-c:v h264_amf -quality balanced -rc cqp -qp_i 22 -qp_p 22"));
         assert!(joined.contains("-g 30"));
-        assert!(
-            joined.contains("-f segment -segment_format matroska -segment_time 1 -segment_wrap 18")
-        );
+        assert!(joined.contains(
+            "-f segment -segment_format matroska -segment_format_options cluster_time_limit=1000 -segment_time 60 -segment_wrap 3"
+        ));
         let list = Path::new(r"C:\tmp\rec")
             .join("segments.csv")
             .display()
             .to_string();
         assert!(joined.contains(&format!(
-            "-reset_timestamps 1 -segment_list {list} -segment_list_type csv -segment_list_size 18"
+            "-reset_timestamps 1 -segment_list {list} -segment_list_type csv -segment_list_size 3"
         )));
-        assert!(args.last().unwrap().ends_with("seg%02d.mkv"));
+        assert!(args.last().unwrap().ends_with("seg%d.mkv"));
     }
 
     fn encoder_line(encoder: &str, quality: VideoQuality) -> String {
         let options = CaptureOptions {
             fps: 60,
             quality,
-            wrap: 10,
+            file_seconds: 60,
         };
         capture_args(encoder, Path::new("rec"), &options, None).join(" ")
     }
@@ -790,6 +882,18 @@ mod tests {
             encoder_line("h264_qsv", VideoQuality::High)
                 .contains("-c:v h264_qsv -preset medium -global_quality 20")
         );
+    }
+
+    #[test]
+    fn capture_args_record_at_120_fps() {
+        let options = CaptureOptions {
+            fps: 120,
+            quality: VideoQuality::High,
+            file_seconds: 60,
+        };
+        let joined = capture_args("h264_amf", Path::new("rec"), &options, None).join(" ");
+        assert!(joined.contains("ddagrab=output_idx=0:framerate=120,hwdownload,format=bgra[v]"));
+        assert!(joined.contains("-g 120"));
     }
 
     #[test]
@@ -817,24 +921,127 @@ mod tests {
     }
 
     #[test]
-    fn saving_joins_segments_without_recompressing() {
-        let av1 = save_args(Path::new("clip.txt"), Path::new("Mesa.mp4"), "av1_amf").join(" ");
+    fn saving_copies_the_video_and_fades_the_audio_edges() {
+        let av1 = save_args(
+            Path::new("clip.txt"),
+            Path::new("Mesa.mp4"),
+            "av1_amf",
+            None,
+            20.0,
+        )
+        .join(" ");
         assert_eq!(
             av1,
-            "-hide_banner -loglevel error -y -f concat -safe 0 -i clip.txt -c:v copy -c:a aac -b:a 160k -af aresample=async=1 -movflags +faststart Mesa.mp4"
+            "-hide_banner -loglevel error -y -f concat -safe 0 -i clip.txt -c:v copy -c:a aac -b:a 160k -af aresample=async=1:first_pts=0,afade=t=in:st=0.15:d=0.1,afade=t=out:st=19.750:d=0.1 -movflags +faststart Mesa.mp4"
         );
-        let hevc = save_args(Path::new("clip.txt"), Path::new("Mesa.mp4"), "hevc_amf").join(" ");
+        let hevc = save_args(
+            Path::new("clip.txt"),
+            Path::new("Mesa.mp4"),
+            "hevc_amf",
+            None,
+            20.0,
+        )
+        .join(" ");
         assert!(hevc.contains("-c:v copy -tag:v hvc1 -c:a aac"));
     }
 
     #[test]
-    fn segment_durations_come_from_the_segment_list() {
-        let durations = segment_durations(
-            "seg00.mkv,0.000000,1.021000\nseg01.mkv,1.021000,2.021000\n\nbroken\n",
+    fn saving_retimes_a_doubled_capture_down_to_the_clip_rate() {
+        let joined = save_args(
+            Path::new("clip.txt"),
+            Path::new("Mesa.mp4"),
+            "h264_amf",
+            Some((60, VideoQuality::Balanced)),
+            20.0,
+        )
+        .join(" ");
+        assert!(joined.contains(
+            "-i clip.txt -vf mpdecimate,setpts='if(isnan(PREV_OUTPTS),PTS,if(gt(PTS-PREV_INPTS,0.05/TB),PTS,min(PTS,PREV_OUTPTS+0.0165/TB)))',fps=60 -c:v h264_amf -quality balanced -rc cqp -qp_i 22 -qp_p 22 -pix_fmt yuv420p -g 60 -c:a aac"
+        ));
+        let hevc = save_args(
+            Path::new("clip.txt"),
+            Path::new("Mesa.mp4"),
+            "hevc_amf",
+            Some((30, VideoQuality::High)),
+            20.0,
+        )
+        .join(" ");
+        assert!(hevc.contains("min(PTS,PREV_OUTPTS+0.0330/TB)))',fps=30 -c:v hevc_amf"));
+        assert!(hevc.contains("-g 30 -tag:v hvc1 -c:a aac"));
+    }
+
+    #[test]
+    fn capture_runs_at_twice_the_clip_rate_up_to_120() {
+        assert_eq!(capture_fps(30), 60);
+        assert_eq!(capture_fps(60), 120);
+        assert_eq!(capture_fps(120), 120);
+        let options = CaptureOptions::from_settings(&Settings {
+            video_fps: 60,
+            ..Settings::default()
+        });
+        assert_eq!(options.fps, 120);
+    }
+
+    fn recorded(name: &str, start: f64, end: f64) -> Recorded {
+        Recorded {
+            name: name.into(),
+            start,
+            end,
+        }
+    }
+
+    fn piece(name: &str, inpoint: f64, outpoint: f64) -> Piece {
+        Piece {
+            name: name.into(),
+            inpoint,
+            outpoint,
+        }
+    }
+
+    #[test]
+    fn recorded_files_come_from_the_list_plus_the_one_being_written() {
+        let files = recorded_files(
+            "seg1.mkv,60.000000,120.000000\nseg2.mkv,120.000000,180.000000\n\nbroken\n",
         );
-        assert_eq!(durations.len(), 2);
-        assert!((durations["seg00.mkv"] - 1.021).abs() < 1e-9);
-        assert!((durations["seg01.mkv"] - 1.0).abs() < 1e-9);
+        assert_eq!(
+            files,
+            vec![
+                recorded("seg1.mkv", 60.0, 120.0),
+                recorded("seg2.mkv", 120.0, 180.0),
+                recorded("seg0.mkv", 180.0, f64::INFINITY),
+            ]
+        );
+        assert_eq!(
+            recorded_files(""),
+            vec![recorded("seg0.mkv", 0.0, f64::INFINITY)]
+        );
+    }
+
+    #[test]
+    fn clip_plan_cuts_the_window_out_of_the_files() {
+        let files = vec![
+            recorded("seg1.mkv", 60.0, 120.0),
+            recorded("seg2.mkv", 120.0, 180.0),
+            recorded("seg0.mkv", 180.0, f64::INFINITY),
+        ];
+        assert_eq!(
+            clip_plan(&files, 185.0, 205.0),
+            vec![piece("seg0.mkv", 5.0, 25.0)]
+        );
+        assert_eq!(
+            clip_plan(&files, 110.0, 130.0),
+            vec![piece("seg1.mkv", 50.0, 60.0), piece("seg2.mkv", 0.0, 10.0)]
+        );
+        assert_eq!(
+            clip_plan(&files, 185.4, 205.0),
+            vec![piece("seg0.mkv", 5.0, 25.0)]
+        );
+        assert!(clip_plan(&files, 10.0, 20.0).is_empty());
+        let fresh = vec![recorded("seg0.mkv", 0.0, f64::INFINITY)];
+        assert_eq!(
+            clip_plan(&fresh, -3.0, 10.0),
+            vec![piece("seg0.mkv", 0.0, 10.0)]
+        );
     }
 
     #[test]
@@ -842,7 +1049,7 @@ mod tests {
         let options = CaptureOptions {
             fps: 60,
             quality: VideoQuality::Balanced,
-            wrap: 13,
+            file_seconds: 60,
         };
         let audio = AudioFormat {
             rate: 48_000,
@@ -854,8 +1061,8 @@ mod tests {
             "-hide_banner -loglevel error -y -thread_queue_size 1024 -f f32le -ar 48000 -ac 8 -i pipe:0 -filter_complex"
         ));
         assert!(joined.contains("[v] -map [v] -map 0:a -c:v h264_amf"));
-        assert!(joined.contains("-c:a aac -b:a 160k -ac 2"));
-        assert!(args.last().unwrap().ends_with("seg%02d.mkv"));
+        assert!(joined.contains("-c:a pcm_s16le -ac 2"));
+        assert!(args.last().unwrap().ends_with("seg%d.mkv"));
     }
 
     #[test]
@@ -887,70 +1094,78 @@ mod tests {
                 video_after: 0,
                 ..old.clone()
             },
+            Settings {
+                video_format: VideoFormat::Small,
+                ..old.clone()
+            },
         ] {
             assert!(capture_changed(&old, &changed));
         }
     }
 
     #[test]
-    fn ring_holds_the_whole_clip_window() {
-        assert_eq!(ring_size(10, 5), 18);
-        assert_eq!(ring_size(60, 15), 78);
+    fn files_hold_the_whole_clip_window() {
+        assert_eq!(file_seconds(10, 5), 60);
+        assert_eq!(file_seconds(60, 15), 105);
     }
 
     #[test]
     fn encoder_preference() {
         let works = |_: &str| true;
+        let compatible = VideoFormat::Compatible;
         assert_eq!(
-            pick_encoder(" V..... h264_amf  AMD\n V..... libx264", works),
+            pick_encoder(
+                " V..... h264_amf  AMD
+ V..... libx264",
+                compatible,
+                works
+            ),
             "h264_amf"
         );
-        assert_eq!(pick_encoder("h264_qsv h264_nvenc", works), "h264_nvenc");
-        assert_eq!(pick_encoder("libx264 only", works), "libx264");
-        assert_eq!(pick_encoder("h264_amf hevc_amf av1_amf", works), "av1_amf");
         assert_eq!(
-            pick_encoder("h264_amf hevc_amf av1_amf", |e| e != "av1_amf"),
+            pick_encoder("h264_qsv h264_nvenc", compatible, works),
+            "h264_nvenc"
+        );
+        assert_eq!(pick_encoder("libx264 only", compatible, works), "libx264");
+        let all = "h264_amf hevc_amf av1_amf";
+        assert_eq!(pick_encoder(all, compatible, works), "h264_amf");
+        assert_eq!(pick_encoder(all, VideoFormat::Small, works), "av1_amf");
+        assert_eq!(
+            pick_encoder(all, VideoFormat::Small, |e| e != "av1_amf"),
             "hevc_amf"
+        );
+        assert_eq!(
+            pick_encoder(all, VideoFormat::Small, |e| e == "h264_amf"),
+            "h264_amf"
         );
     }
 
     #[test]
     fn encoder_skips_listed_hardware_that_cannot_open() {
-        let listed = " V....D h264_nvenc\n V....D h264_amf\n V....D h264_qsv";
-        assert_eq!(pick_encoder(listed, |e| e == "h264_amf"), "h264_amf");
-        assert_eq!(pick_encoder(listed, |e| e == "h264_qsv"), "h264_qsv");
-        assert_eq!(pick_encoder(listed, |_| false), "libx264");
-    }
-
-    #[test]
-    fn clip_takes_the_segments_since_the_window_start() {
-        let t = |s: u64| UNIX_EPOCH + Duration::from_secs(s);
-        let files = vec![
-            (PathBuf::from("seg03.ts"), t(30)),
-            (PathBuf::from("seg00.ts"), t(60)),
-            (PathBuf::from("seg01.ts"), t(70)),
-            (PathBuf::from("seg02.ts"), t(20)),
-        ];
+        let listed = " V....D h264_nvenc
+ V....D h264_amf
+ V....D h264_qsv";
+        let compatible = VideoFormat::Compatible;
         assert_eq!(
-            clip_segments(&files, t(25)),
-            vec![
-                PathBuf::from("seg03.ts"),
-                PathBuf::from("seg00.ts"),
-                PathBuf::from("seg01.ts")
-            ]
+            pick_encoder(listed, compatible, |e| e == "h264_amf"),
+            "h264_amf"
         );
-        assert!(clip_segments(&files, t(80)).is_empty());
+        assert_eq!(
+            pick_encoder(listed, compatible, |e| e == "h264_qsv"),
+            "h264_qsv"
+        );
+        assert_eq!(pick_encoder(listed, compatible, |_| false), "libx264");
     }
 
     #[test]
     fn concat_list_escapes_quotes_and_slashes() {
-        let list = concat_list(&[
-            (PathBuf::from(r"C:\it's\seg01.mkv"), Some(1.0)),
-            (PathBuf::from("seg02.mkv"), None),
-        ]);
+        let list = concat_list(
+            Path::new(r"C:\it's"),
+            &[piece("seg1.mkv", 50.0, 60.0), piece("seg2.mkv", 0.0, 10.0)],
+        );
         assert_eq!(
             list,
-            "file 'C:/it'\\''s/seg01.mkv'\nduration 1.000000\nfile 'seg02.mkv'\n"
+            "file 'C:/it'\\''s/seg1.mkv'\ninpoint 50.000000\noutpoint 60.000000\nfile 'C:/it'\\''s/seg2.mkv'\ninpoint 0.000000\noutpoint 10.000000\n"
         );
     }
 }

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub const DEFAULT_PRESET: &str = "aw-minimal";
 const VIDEO_BEFORE: (u32, u32) = (5, 60);
 const VIDEO_AFTER_MAX: u32 = 15;
-const VIDEO_FPS: [u32; 2] = [30, 60];
+const VIDEO_FPS: [u32; 3] = [30, 60, 120];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -24,6 +24,14 @@ pub enum VideoQuality {
     #[default]
     Balanced,
     High,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum VideoFormat {
+    #[default]
+    Compatible,
+    Small,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -81,6 +89,7 @@ pub struct Settings {
     pub video_after: u32,
     pub video_fps: u32,
     pub video_quality: VideoQuality,
+    pub video_format: VideoFormat,
     pub auto_update: bool,
     pub ffmpeg_path: Option<PathBuf>,
     pub video_dir: Option<PathBuf>,
@@ -116,6 +125,7 @@ impl Default for Settings {
             video_after: 5,
             video_fps: 30,
             video_quality: VideoQuality::Balanced,
+            video_format: VideoFormat::Compatible,
             auto_update: true,
             ffmpeg_path: None,
             video_dir: None,
@@ -222,8 +232,21 @@ mod tests {
         }
         .sanitized();
         assert_eq!((high.video_before, high.video_fps), (60, 60));
+        let fastest = Settings {
+            video_fps: 120,
+            ..Settings::default()
+        }
+        .sanitized();
+        assert_eq!(fastest.video_fps, 120);
         let parsed: Settings = serde_json::from_str(r#"{"videoQuality":"high"}"#).unwrap();
         assert_eq!(parsed.video_quality, VideoQuality::High);
+    }
+
+    #[test]
+    fn video_format_defaults_to_compatible() {
+        assert_eq!(Settings::default().video_format, VideoFormat::Compatible);
+        let parsed: Settings = serde_json::from_str(r#"{"videoFormat":"small"}"#).unwrap();
+        assert_eq!(parsed.video_format, VideoFormat::Small);
     }
 
     #[test]

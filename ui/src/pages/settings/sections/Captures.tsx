@@ -1,8 +1,8 @@
 import { Segmented } from "../../../components/Segmented";
-import { VIDEO_FPS, VIDEO_QUALITIES } from "../../../constants";
-import { QUALITY_HINTS, QUALITY_LABELS } from "../../../i18n/labels";
+import { VIDEO_FORMATS, VIDEO_FPS, VIDEO_QUALITIES } from "../../../constants";
+import { FORMAT_HINTS, FORMAT_LABELS, QUALITY_HINTS, QUALITY_LABELS } from "../../../i18n/labels";
 import { useI18n } from "../../../i18n/useI18n";
-import type { VideoQuality } from "../../../types/domain";
+import type { VideoFormat, VideoQuality } from "../../../types/domain";
 import type { SectionProps } from "../../../types/ui";
 import { ClipTimeline } from "../ClipTimeline";
 import { PathField } from "../controls";
@@ -11,6 +11,9 @@ import { SettingBlock, SettingRow, SwitchRow } from "../SettingRow";
 
 const isQuality = (value: string): value is VideoQuality =>
   (VIDEO_QUALITIES as readonly string[]).includes(value);
+
+const isFormat = (value: string): value is VideoFormat =>
+  (VIDEO_FORMATS as readonly string[]).includes(value);
 
 export function Captures({ settings, update }: SectionProps) {
   const { t } = useI18n();
@@ -21,6 +24,10 @@ export function Captures({ settings, update }: SectionProps) {
   const qualityOptions = VIDEO_QUALITIES.map((quality) => ({
     value: quality,
     label: t(QUALITY_LABELS[quality]),
+  }));
+  const formatOptions = VIDEO_FORMATS.map((format) => ({
+    value: format,
+    label: t(FORMAT_LABELS[format]),
   }));
   const saveWindow = (before: number, after: number) => {
     if (before !== settings.videoBefore) void update("videoBefore", before);
@@ -51,6 +58,7 @@ export function Captures({ settings, update }: SectionProps) {
               after={settings.videoAfter}
               fps={settings.videoFps}
               quality={settings.videoQuality}
+              format={settings.videoFormat}
               onCommit={saveWindow}
             />
           </SettingBlock>
@@ -71,6 +79,17 @@ export function Captures({ settings, update }: SectionProps) {
               options={qualityOptions}
               value={settings.videoQuality}
               onChange={(value) => isQuality(value) && void update("videoQuality", value)}
+            />
+          </SettingRow>
+          <SettingRow
+            label={t("settings.videoFormat")}
+            hint={t(FORMAT_HINTS[settings.videoFormat])}
+          >
+            <Segmented
+              label={t("settings.videoFormat")}
+              options={formatOptions}
+              value={settings.videoFormat}
+              onChange={(value) => isFormat(value) && void update("videoFormat", value)}
             />
           </SettingRow>
         </>

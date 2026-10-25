@@ -57,7 +57,8 @@ export const ACHIEVEMENT_LANGUAGES = [
 export const SOUND_EVENTS = ["unlock", "rare", "platinum"] as const;
 export const PREVIEW_KINDS = ["unlock", "rare", "platinum", "progress"] as const;
 export const VIDEO_QUALITIES = ["light", "balanced", "high"] as const;
-export const VIDEO_FPS = [30, 60] as const;
+export const VIDEO_FORMATS = ["compatible", "small"] as const;
+export const VIDEO_FPS = [30, 60, 120] as const;
 export const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
 export const USER_FOLDERS = ["presets", "sounds", "data"] as const;
 
