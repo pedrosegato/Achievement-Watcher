@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SoundPack } from "../types/domain";
-import { packName } from "./sounds";
+import { packName, selectedPackId } from "./sounds";
 
 function pack(partial: Partial<SoundPack>): SoundPack {
   return {
@@ -27,5 +27,17 @@ describe("packName", () => {
 
   it("marks a user pack that replaces the default as the user's own", () => {
     expect(packName(pack({ builtin: false, name: "Mine" }), t)).toBe("t:settings.customPack:Mine");
+  });
+});
+
+describe("selectedPackId", () => {
+  const packs = [pack({}), pack({ id: "xbox", name: "Xbox" })];
+
+  it("keeps the saved pack when it still exists", () => {
+    expect(selectedPackId(packs, "Xbox")).toBe("xbox");
+  });
+
+  it("falls back to the default pack when the saved one is gone", () => {
+    expect(selectedPackId(packs, "android")).toBe("achievement-watcher");
   });
 });

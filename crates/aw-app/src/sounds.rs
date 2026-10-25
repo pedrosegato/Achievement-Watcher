@@ -228,7 +228,9 @@ mod tests {
         }
         let ps5 = packs.iter().find(|p| p.id == "playstation-5").unwrap();
         assert!(ps5.has_platinum);
-        assert!(packs.iter().all(|p| p.id != "aw-chime"));
-        assert_eq!(packs.len(), 10);
+        for gone in ["aw-chime", "android", "windows-8"] {
+            assert!(packs.iter().all(|p| p.id != gone), "{gone}");
+        }
+        assert_eq!(packs.len(), 8);
     }
 }

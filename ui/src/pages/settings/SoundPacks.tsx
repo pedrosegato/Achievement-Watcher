@@ -8,7 +8,7 @@ import { useI18n } from "../../i18n/useI18n";
 import { cn } from "../../lib/cn";
 import { api } from "../../lib/commands";
 import { queries } from "../../lib/queries";
-import { packName } from "../../lib/sounds";
+import { packName, selectedPackId } from "../../lib/sounds";
 import type { SoundEvent, SoundPack } from "../../types/domain";
 
 interface SoundPacksProps {
@@ -52,7 +52,7 @@ export function SoundPacks({ selected, onSelect }: SoundPacksProps) {
       .catch(() => setPlaying(null));
   };
 
-  const current = selected.toLowerCase();
+  const current = selectedPackId(packs ?? [], selected).toLowerCase();
   return (
     <div role="radiogroup" aria-label={t("settings.soundPack")} className="flex flex-col gap-0.5">
       {(packs ?? []).map((pack) => (
