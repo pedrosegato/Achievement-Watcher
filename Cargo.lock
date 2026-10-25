@@ -7,6 +7,7 @@ name = "achievement-watcher"
 version = "0.1.0"
 dependencies = [
  "aw-core",
+ "cpal",
  "rodio",
  "serde",
  "serde_json",

@@ -6,6 +6,7 @@ mod commands;
 mod diag;
 mod games;
 mod i18n;
+mod loopback;
 mod overlay;
 mod popup;
 mod popup_queue;

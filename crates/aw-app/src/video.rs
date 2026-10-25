@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -10,15 +11,26 @@ use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::app::AppState;
+use crate::loopback::{self, AudioFormat, Feed};
 use crate::settings::{Settings, VideoQuality};
 use crate::shot::{sanitize, unique_path};
 
 const FFMPEG_ZIP: &str = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
 const FFMPEG_SHA: &str = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256";
 const SEGMENT_SECONDS: u32 = 1;
+const SEGMENT_LIST: &str = "segments.csv";
 const RING_SLACK: u32 = 3;
 const SAVE_SLACK: Duration = Duration::from_secs(1);
-const ENCODERS: [&str; 3] = ["h264_nvenc", "h264_amf", "h264_qsv"];
+const ENCODERS: [&str; 8] = [
+    "av1_nvenc",
+    "av1_amf",
+    "hevc_nvenc",
+    "hevc_amf",
+    "hevc_qsv",
+    "h264_nvenc",
+    "h264_amf",
+    "h264_qsv",
+];
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const COPY_BLOCK: usize = 64 * 1024;
 const PROGRESS_EVERY: Duration = Duration::from_millis(200);
@@ -54,6 +66,8 @@ struct Recorder {
     child: Child,
     dir: PathBuf,
     app_id: u32,
+    encoder: &'static str,
+    audio: Option<Feed>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -70,6 +84,7 @@ pub struct FfmpegStatus {
 #[derive(Default)]
 pub struct VideoState {
     recorder: Mutex<Option<Recorder>>,
+    encoder: Mutex<Option<&'static str>>,
     download: Mutex<FfmpegStatus>,
     cancel: AtomicBool,
 }
@@ -86,6 +101,15 @@ fn command(program: &Path) -> Command {
         command.creation_flags(CREATE_NO_WINDOW);
     }
     command
+}
+
+fn run(command: &mut Command) -> Result<(), String> {
+    let status = command.status().map_err(|e| e.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("ffmpeg exited with {status}"))
+    }
 }
 
 pub fn ffmpeg_path(state: &AppState) -> Option<PathBuf> {
@@ -108,81 +132,232 @@ pub fn status(state: &AppState) -> FfmpegStatus {
     status
 }
 
-pub fn pick_encoder(available: &str) -> &'static str {
+pub fn pick_encoder(available: &str, works: impl Fn(&str) -> bool) -> &'static str {
     ENCODERS
         .into_iter()
-        .find(|encoder| available.contains(encoder))
+        .find(|encoder| available.contains(encoder) && works(encoder))
         .unwrap_or("libx264")
 }
 
-pub fn capture_args(encoder: &str, segment_dir: &Path, options: &CaptureOptions) -> Vec<String> {
-    let (level, scale) = match options.quality {
-        VideoQuality::Light => (30, ",scale=-2:'min(ih,720)'"),
-        VideoQuality::Balanced => (26, ",scale=-2:'min(ih,1080)'"),
-        VideoQuality::High => (22, ""),
+fn encoder_works(ffmpeg: &Path, encoder: &str) -> bool {
+    command(ffmpeg)
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=640x360:r=30",
+            "-frames:v",
+            "1",
+            "-c:v",
+            encoder,
+            "-f",
+            "null",
+            "-",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+fn encoder(state: &AppState, ffmpeg: &Path) -> &'static str {
+    let mut cached = lock(&state.video.encoder);
+    if let Some(encoder) = *cached {
+        return encoder;
+    }
+    let listed = command(ffmpeg)
+        .args(["-hide_banner", "-encoders"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .unwrap_or_default();
+    let picked = pick_encoder(&listed, |candidate| encoder_works(ffmpeg, candidate));
+    tracing::info!("video encoder: {picked}");
+    *cached = Some(picked);
+    picked
+}
+
+pub fn prepare(app: &AppHandle) {
+    let app = app.clone();
+    let spawned = std::thread::Builder::new()
+        .name("aw-video-encoder".into())
+        .spawn(move || {
+            let state = app.state::<AppState>();
+            if let Some(ffmpeg) = ffmpeg_path(&state) {
+                encoder(&state, &ffmpeg);
+            }
+        });
+    if let Err(error) = spawned {
+        tracing::warn!("encoder probe thread failed: {error}");
+    }
+}
+
+pub fn capture_args(
+    encoder: &str,
+    segment_dir: &Path,
+    options: &CaptureOptions,
+    audio: Option<AudioFormat>,
+) -> Vec<String> {
+    let scale = match options.quality {
+        VideoQuality::Light => ",scale=-2:'min(ih,720)'",
+        VideoQuality::Balanced => ",scale=-2:'min(ih,1080)'",
+        VideoQuality::High => "",
     };
-    let quality: Vec<String> = match encoder {
-        "libx264" => vec![
-            "-preset".into(),
-            "ultrafast".into(),
-            "-tune".into(),
-            "zerolatency".into(),
-            "-crf".into(),
-            level.to_string(),
-        ],
-        "h264_nvenc" => vec![
-            "-preset".into(),
-            "p1".into(),
-            "-cq".into(),
-            level.to_string(),
-        ],
-        "h264_amf" => vec![
-            "-quality".into(),
-            "speed".into(),
-            "-rc".into(),
-            "cqp".into(),
-            "-qp_i".into(),
-            (level - 2).to_string(),
-            "-qp_p".into(),
-            level.to_string(),
-        ],
-        _ => vec![
-            "-preset".into(),
-            "veryfast".into(),
-            "-global_quality".into(),
-            level.to_string(),
-        ],
-    };
-    let mut args: Vec<String> = [
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-y",
-        "-filter_complex",
-    ]
-    .iter()
-    .map(|s| (*s).to_owned())
-    .collect();
+    let mut args: Vec<String> = ["-hide_banner", "-loglevel", "error", "-y"]
+        .iter()
+        .map(|s| (*s).to_owned())
+        .collect();
+    if let Some(audio) = audio {
+        args.extend([
+            "-thread_queue_size".into(),
+            "1024".into(),
+            "-f".into(),
+            "f32le".into(),
+            "-ar".into(),
+            audio.rate.to_string(),
+            "-ac".into(),
+            audio.channels.to_string(),
+            "-i".into(),
+            "pipe:0".into(),
+        ]);
+    }
+    args.push("-filter_complex".into());
     args.push(format!(
-        "ddagrab=output_idx=0:framerate={},hwdownload,format=bgra{scale}",
+        "ddagrab=output_idx=0:framerate={},hwdownload,format=bgra{scale}[v]",
         options.fps
     ));
+    args.extend(["-map".into(), "[v]".into()]);
+    if audio.is_some() {
+        args.extend(["-map".into(), "0:a".into()]);
+    }
     args.push("-c:v".into());
     args.push(encoder.into());
-    args.extend(quality);
+    args.extend(encoder_args(encoder, options.quality));
     args.extend([
         "-pix_fmt".into(),
         "yuv420p".into(),
         "-g".into(),
         options.fps.to_string(),
     ]);
-    args.extend(["-f".into(), "segment".into(), "-segment_time".into()]);
+    if audio.is_some() {
+        args.extend(
+            ["-c:a", "aac", "-b:a", "160k", "-ac", "2"]
+                .iter()
+                .map(|s| (*s).to_owned()),
+        );
+    }
+    args.extend(
+        [
+            "-f",
+            "segment",
+            "-segment_format",
+            "matroska",
+            "-segment_time",
+        ]
+        .iter()
+        .map(|s| (*s).to_owned()),
+    );
     args.push(SEGMENT_SECONDS.to_string());
     args.push("-segment_wrap".into());
     args.push(options.wrap.to_string());
     args.push("-reset_timestamps".into());
     args.push("1".into());
-    args.push(segment_dir.join("seg%02d.ts").display().to_string());
+    args.push("-segment_list".into());
+    args.push(segment_dir.join(SEGMENT_LIST).display().to_string());
+    args.extend(["-segment_list_type".into(), "csv".into()]);
+    args.push("-segment_list_size".into());
+    args.push(options.wrap.to_string());
+    args.push(segment_dir.join("seg%02d.mkv").display().to_string());
+    args
+}
+
+fn encoder_args(encoder: &str, quality: VideoQuality) -> Vec<String> {
+    let level = |high: u8, balanced: u8, light: u8| {
+        match quality {
+            VideoQuality::High => high,
+            VideoQuality::Balanced => balanced,
+            VideoQuality::Light => light,
+        }
+        .to_string()
+    };
+    let nvenc: &[&str] = &["-preset", "p5", "-tune", "hq", "-rc", "constqp"];
+    let (fixed, flags, value): (&[&str], &[&str], String) = match encoder {
+        "av1_nvenc" => (nvenc, &["-qp"], level(56, 64, 76)),
+        "av1_amf" => (
+            &["-usage", "transcoding", "-quality", "quality", "-rc", "cqp"],
+            &["-qp_i", "-qp_p"],
+            level(56, 64, 76),
+        ),
+        "hevc_nvenc" => (nvenc, &["-qp"], level(22, 24, 27)),
+        "hevc_amf" => (
+            &["-quality", "quality", "-rc", "cqp"],
+            &["-qp_i", "-qp_p"],
+            level(22, 24, 27),
+        ),
+        "hevc_qsv" => (
+            &["-preset", "medium"],
+            &["-global_quality"],
+            level(22, 24, 27),
+        ),
+        "h264_nvenc" => (
+            &["-preset", "p4", "-tune", "hq", "-rc", "constqp"],
+            &["-qp"],
+            level(20, 22, 25),
+        ),
+        "h264_amf" => (
+            &["-quality", "balanced", "-rc", "cqp"],
+            &["-qp_i", "-qp_p"],
+            level(20, 22, 25),
+        ),
+        "h264_qsv" => (
+            &["-preset", "medium"],
+            &["-global_quality"],
+            level(20, 22, 25),
+        ),
+        _ => (
+            &["-preset", "ultrafast", "-tune", "zerolatency"],
+            &["-crf"],
+            level(20, 22, 25),
+        ),
+    };
+    let mut args: Vec<String> = fixed.iter().map(|s| (*s).to_owned()).collect();
+    for flag in flags {
+        args.push((*flag).to_owned());
+        args.push(value.clone());
+    }
+    args
+}
+
+pub fn save_args(list: &Path, target: &Path, encoder: &str) -> Vec<String> {
+    let mut args: Vec<String> = [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+    ]
+    .iter()
+    .map(|s| (*s).to_owned())
+    .collect();
+    args.push(list.display().to_string());
+    args.extend(["-c:v".to_owned(), "copy".to_owned()]);
+    if encoder.starts_with("hevc") {
+        args.extend(["-tag:v".to_owned(), "hvc1".to_owned()]);
+    }
+    args.extend(
+        ["-c:a", "aac", "-b:a", "160k", "-af", "aresample=async=1"]
+            .iter()
+            .map(|s| (*s).to_owned()),
+    );
+    args.extend(["-movflags".to_owned(), "+faststart".to_owned()]);
+    args.push(target.display().to_string());
     args
 }
 
@@ -195,16 +370,31 @@ pub fn clip_segments(files: &[(PathBuf, SystemTime)], since: SystemTime) -> Vec<
     recent.into_iter().map(|(path, _)| path.clone()).collect()
 }
 
-pub fn concat_list(paths: &[PathBuf]) -> String {
-    paths
+pub fn segment_durations(list: &str) -> HashMap<String, f64> {
+    list.lines()
+        .filter_map(|line| {
+            let mut fields = line.split(',');
+            let name = fields.next()?.trim();
+            let start: f64 = fields.next()?.trim().parse().ok()?;
+            let end: f64 = fields.next()?.trim().parse().ok()?;
+            Some((name.to_owned(), end - start))
+        })
+        .collect()
+}
+
+pub fn concat_list(entries: &[(PathBuf, Option<f64>)]) -> String {
+    entries
         .iter()
-        .map(|p| {
-            let text = p
+        .map(|(path, duration)| {
+            let text = path
                 .display()
                 .to_string()
                 .replace('\\', "/")
                 .replace('\'', "'\\''");
-            format!("file '{text}'\n")
+            match duration {
+                Some(seconds) => format!("file '{text}'\nduration {seconds:.6}\n"),
+                None => format!("file '{text}'\n"),
+            }
         })
         .collect()
 }
@@ -227,23 +417,33 @@ pub fn start(app: &AppHandle, app_id: u32) {
     if std::fs::create_dir_all(&dir).is_err() {
         return;
     }
-    let encoders = command(&ffmpeg)
-        .args(["-hide_banner", "-encoders"])
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-        .unwrap_or_default();
-    let encoder = pick_encoder(&encoders);
+    let encoder = encoder(&state, &ffmpeg);
     let options = CaptureOptions::from_settings(&state.settings_snapshot());
+    let format = loopback::format();
     match command(&ffmpeg)
-        .args(capture_args(encoder, &dir, &options))
+        .args(capture_args(encoder, &dir, &options, format))
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
     {
-        Ok(child) => {
-            tracing::info!("recording replay buffer for {app_id} with {encoder}");
-            *slot = Some(Recorder { child, dir, app_id });
+        Ok(mut child) => {
+            let audio = match format {
+                Some(format) => child
+                    .stdin
+                    .take()
+                    .map(|stdin| loopback::start(format, stdin)),
+                None => None,
+            };
+            let sound = if audio.is_some() { "with" } else { "without" };
+            tracing::info!("recording replay buffer for {app_id} with {encoder}, {sound} audio");
+            *slot = Some(Recorder {
+                child,
+                dir,
+                app_id,
+                encoder,
+                audio,
+            });
         }
         Err(error) => tracing::warn!("cannot start ffmpeg: {error}"),
     }
@@ -257,7 +457,9 @@ pub fn stop(app: &AppHandle, app_id: Option<u32>) {
         .is_some_and(|r| app_id.is_none_or(|id| id == r.app_id))
         && let Some(mut recorder) = slot.take()
     {
-        if let Some(stdin) = recorder.child.stdin.as_mut() {
+        if recorder.audio.take().is_none()
+            && let Some(stdin) = recorder.child.stdin.as_mut()
+        {
             let _ = stdin.write_all(b"q");
         }
         std::thread::sleep(Duration::from_millis(500));
@@ -275,8 +477,8 @@ pub fn clip(app: &AppHandle, app_id: u32, game: String, achievement: String) {
     let Some(ffmpeg) = ffmpeg_path(&state) else {
         return;
     };
-    let dir = match lock(&state.video.recorder).as_ref() {
-        Some(recorder) if recorder.app_id == app_id => recorder.dir.clone(),
+    let (dir, encoder) = match lock(&state.video.recorder).as_ref() {
+        Some(recorder) if recorder.app_id == app_id => (recorder.dir.clone(), recorder.encoder),
         _ => return,
     };
     let root = settings.video_dir.clone().or_else(|| {
@@ -294,7 +496,13 @@ pub fn clip(app: &AppHandle, app_id: u32, game: String, achievement: String) {
         .name("aw-video-clip".into())
         .spawn(move || {
             std::thread::sleep(wait);
-            if let Err(error) = save_clip(&ffmpeg, &dir, &root, &game, &achievement, since) {
+            let clip = Clip {
+                game: &game,
+                achievement: &achievement,
+                since,
+                encoder,
+            };
+            if let Err(error) = save_clip(&ffmpeg, &dir, &root, &clip) {
                 tracing::warn!("video clip failed: {error}");
             }
         });
@@ -303,49 +511,43 @@ pub fn clip(app: &AppHandle, app_id: u32, game: String, achievement: String) {
     }
 }
 
-fn save_clip(
-    ffmpeg: &Path,
-    dir: &Path,
-    root: &Path,
-    game: &str,
-    achievement: &str,
+struct Clip<'a> {
+    game: &'a str,
+    achievement: &'a str,
     since: SystemTime,
-) -> Result<(), String> {
+    encoder: &'a str,
+}
+
+fn save_clip(ffmpeg: &Path, dir: &Path, root: &Path, clip: &Clip) -> Result<(), String> {
     let files: Vec<(PathBuf, SystemTime)> = std::fs::read_dir(dir)
         .map_err(|e| e.to_string())?
         .flatten()
-        .filter(|e| e.path().extension().is_some_and(|x| x == "ts"))
+        .filter(|e| e.path().extension().is_some_and(|x| x == "mkv"))
         .filter_map(|e| Some((e.path(), e.metadata().ok()?.modified().ok()?)))
         .collect();
-    let segments = clip_segments(&files, since);
+    let segments = clip_segments(&files, clip.since);
     if segments.is_empty() {
         return Err("no recorded segments yet".into());
     }
+    let durations = std::fs::read_to_string(dir.join(SEGMENT_LIST))
+        .map(|list| segment_durations(&list))
+        .unwrap_or_default();
+    let entries: Vec<(PathBuf, Option<f64>)> = segments
+        .into_iter()
+        .map(|path| {
+            let duration = path
+                .file_name()
+                .and_then(|name| durations.get(&*name.to_string_lossy()))
+                .copied();
+            (path, duration)
+        })
+        .collect();
     let list = dir.join("clip.txt");
-    std::fs::write(&list, concat_list(&segments)).map_err(|e| e.to_string())?;
-    let out_dir = root.join(sanitize(game));
+    std::fs::write(&list, concat_list(&entries)).map_err(|e| e.to_string())?;
+    let out_dir = root.join(sanitize(clip.game));
     std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
-    let target = unique_path(&out_dir, &sanitize(achievement), "mp4");
-    let status = command(ffmpeg)
-        .args([
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-        ])
-        .arg(&list)
-        .args(["-c", "copy", "-movflags", "+faststart"])
-        .arg(&target)
-        .status()
-        .map_err(|e| e.to_string())?;
-    if !status.success() {
-        return Err(format!("ffmpeg exited with {status}"));
-    }
+    let target = unique_path(&out_dir, &sanitize(clip.achievement), "mp4");
+    run(command(ffmpeg).args(save_args(&list, &target, clip.encoder)))?;
     tracing::info!("video saved to {}", target.display());
     Ok(())
 }
@@ -425,12 +627,16 @@ pub fn download(app: AppHandle) {
                     }
                 },
             );
+            let installed = result.is_ok();
             {
                 let mut status = lock(&state.video.download);
                 status.downloading = false;
                 status.error = result.err().filter(|error| error != CANCELLED);
             }
             report(&app);
+            if installed {
+                prepare(&app);
+            }
         });
     if let Err(error) = spawned {
         tracing::warn!("download thread failed: {error}");
@@ -541,37 +747,115 @@ mod tests {
             quality: VideoQuality::Balanced,
             wrap: 18,
         };
-        let args = capture_args("h264_amf", Path::new(r"C:\tmp\rec"), &options);
+        let args = capture_args("h264_amf", Path::new(r"C:\tmp\rec"), &options, None);
         let joined = args.join(" ");
         assert!(joined.contains(
             "ddagrab=output_idx=0:framerate=30,hwdownload,format=bgra,scale=-2:'min(ih,1080)'"
         ));
-        assert!(joined.contains("-c:v h264_amf"));
-        assert!(joined.contains("-qp_i 24 -qp_p 26"));
+        assert!(joined.contains("-c:v h264_amf -quality balanced -rc cqp -qp_i 22 -qp_p 22"));
         assert!(joined.contains("-g 30"));
-        assert!(joined.contains("-f segment -segment_time 1 -segment_wrap 18"));
-        assert!(args.last().unwrap().ends_with("seg%02d.ts"));
+        assert!(
+            joined.contains("-f segment -segment_format matroska -segment_time 1 -segment_wrap 18")
+        );
+        let list = Path::new(r"C:\tmp\rec")
+            .join("segments.csv")
+            .display()
+            .to_string();
+        assert!(joined.contains(&format!(
+            "-reset_timestamps 1 -segment_list {list} -segment_list_type csv -segment_list_size 18"
+        )));
+        assert!(args.last().unwrap().ends_with("seg%02d.mkv"));
+    }
+
+    fn encoder_line(encoder: &str, quality: VideoQuality) -> String {
+        let options = CaptureOptions {
+            fps: 60,
+            quality,
+            wrap: 10,
+        };
+        capture_args(encoder, Path::new("rec"), &options, None).join(" ")
     }
 
     #[test]
     fn capture_args_follow_fps_and_quality() {
-        let light = CaptureOptions {
+        let light = encoder_line("h264_nvenc", VideoQuality::Light);
+        assert!(light.contains("framerate=60,hwdownload,format=bgra,scale=-2:'min(ih,720)'"));
+        assert!(light.contains("-c:v h264_nvenc -preset p4 -tune hq -rc constqp -qp 25"));
+        assert!(light.contains("-g 60"));
+        let high = encoder_line("libx264", VideoQuality::High);
+        assert!(high.contains("framerate=60,hwdownload,format=bgra[v] -map [v] -c:v"));
+        assert!(high.contains("-preset ultrafast -tune zerolatency -crf 20"));
+        assert!(!high.contains("-c:a"));
+        assert!(
+            encoder_line("h264_qsv", VideoQuality::High)
+                .contains("-c:v h264_qsv -preset medium -global_quality 20")
+        );
+    }
+
+    #[test]
+    fn av1_and_hevc_encoders_record_at_their_own_scales() {
+        assert!(encoder_line("av1_amf", VideoQuality::High).contains(
+            "-c:v av1_amf -usage transcoding -quality quality -rc cqp -qp_i 56 -qp_p 56"
+        ));
+        assert!(encoder_line("av1_amf", VideoQuality::Light).contains("-qp_i 76 -qp_p 76"));
+        assert!(
+            encoder_line("av1_nvenc", VideoQuality::Balanced)
+                .contains("-c:v av1_nvenc -preset p5 -tune hq -rc constqp -qp 64")
+        );
+        assert!(
+            encoder_line("hevc_amf", VideoQuality::Balanced)
+                .contains("-c:v hevc_amf -quality quality -rc cqp -qp_i 24 -qp_p 24")
+        );
+        assert!(
+            encoder_line("hevc_nvenc", VideoQuality::High)
+                .contains("-c:v hevc_nvenc -preset p5 -tune hq -rc constqp -qp 22")
+        );
+        assert!(
+            encoder_line("hevc_qsv", VideoQuality::Light)
+                .contains("-c:v hevc_qsv -preset medium -global_quality 27")
+        );
+    }
+
+    #[test]
+    fn saving_joins_segments_without_recompressing() {
+        let av1 = save_args(Path::new("clip.txt"), Path::new("Mesa.mp4"), "av1_amf").join(" ");
+        assert_eq!(
+            av1,
+            "-hide_banner -loglevel error -y -f concat -safe 0 -i clip.txt -c:v copy -c:a aac -b:a 160k -af aresample=async=1 -movflags +faststart Mesa.mp4"
+        );
+        let hevc = save_args(Path::new("clip.txt"), Path::new("Mesa.mp4"), "hevc_amf").join(" ");
+        assert!(hevc.contains("-c:v copy -tag:v hvc1 -c:a aac"));
+    }
+
+    #[test]
+    fn segment_durations_come_from_the_segment_list() {
+        let durations = segment_durations(
+            "seg00.mkv,0.000000,1.021000\nseg01.mkv,1.021000,2.021000\n\nbroken\n",
+        );
+        assert_eq!(durations.len(), 2);
+        assert!((durations["seg00.mkv"] - 1.021).abs() < 1e-9);
+        assert!((durations["seg01.mkv"] - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn capture_args_take_loopback_audio_from_stdin() {
+        let options = CaptureOptions {
             fps: 60,
-            quality: VideoQuality::Light,
-            wrap: 10,
+            quality: VideoQuality::Balanced,
+            wrap: 13,
         };
-        let joined = capture_args("h264_nvenc", Path::new("rec"), &light).join(" ");
-        assert!(joined.contains("framerate=60,hwdownload,format=bgra,scale=-2:'min(ih,720)'"));
-        assert!(joined.contains("-cq 30"));
-        assert!(joined.contains("-g 60"));
-        let high = CaptureOptions {
-            fps: 30,
-            quality: VideoQuality::High,
-            wrap: 10,
+        let audio = AudioFormat {
+            rate: 48_000,
+            channels: 8,
         };
-        let joined = capture_args("libx264", Path::new("rec"), &high).join(" ");
-        assert!(joined.contains("framerate=30,hwdownload,format=bgra -c:v"));
-        assert!(joined.contains("-crf 22"));
+        let args = capture_args("h264_amf", Path::new("rec"), &options, Some(audio));
+        let joined = args.join(" ");
+        assert!(joined.starts_with(
+            "-hide_banner -loglevel error -y -thread_queue_size 1024 -f f32le -ar 48000 -ac 8 -i pipe:0 -filter_complex"
+        ));
+        assert!(joined.contains("[v] -map [v] -map 0:a -c:v h264_amf"));
+        assert!(joined.contains("-c:a aac -b:a 160k -ac 2"));
+        assert!(args.last().unwrap().ends_with("seg%02d.mkv"));
     }
 
     #[test]
@@ -616,12 +900,26 @@ mod tests {
 
     #[test]
     fn encoder_preference() {
+        let works = |_: &str| true;
         assert_eq!(
-            pick_encoder(" V..... h264_amf  AMD\n V..... libx264"),
+            pick_encoder(" V..... h264_amf  AMD\n V..... libx264", works),
             "h264_amf"
         );
-        assert_eq!(pick_encoder("h264_qsv h264_nvenc"), "h264_nvenc");
-        assert_eq!(pick_encoder("libx264 only"), "libx264");
+        assert_eq!(pick_encoder("h264_qsv h264_nvenc", works), "h264_nvenc");
+        assert_eq!(pick_encoder("libx264 only", works), "libx264");
+        assert_eq!(pick_encoder("h264_amf hevc_amf av1_amf", works), "av1_amf");
+        assert_eq!(
+            pick_encoder("h264_amf hevc_amf av1_amf", |e| e != "av1_amf"),
+            "hevc_amf"
+        );
+    }
+
+    #[test]
+    fn encoder_skips_listed_hardware_that_cannot_open() {
+        let listed = " V....D h264_nvenc\n V....D h264_amf\n V....D h264_qsv";
+        assert_eq!(pick_encoder(listed, |e| e == "h264_amf"), "h264_amf");
+        assert_eq!(pick_encoder(listed, |e| e == "h264_qsv"), "h264_qsv");
+        assert_eq!(pick_encoder(listed, |_| false), "libx264");
     }
 
     #[test]
@@ -646,7 +944,13 @@ mod tests {
 
     #[test]
     fn concat_list_escapes_quotes_and_slashes() {
-        let list = concat_list(&[PathBuf::from(r"C:\it's\seg01.ts")]);
-        assert_eq!(list, "file 'C:/it'\\''s/seg01.ts'\n");
+        let list = concat_list(&[
+            (PathBuf::from(r"C:\it's\seg01.mkv"), Some(1.0)),
+            (PathBuf::from("seg02.mkv"), None),
+        ]);
+        assert_eq!(
+            list,
+            "file 'C:/it'\\''s/seg01.mkv'\nduration 1.000000\nfile 'seg02.mkv'\n"
+        );
     }
 }

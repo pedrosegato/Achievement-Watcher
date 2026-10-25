@@ -324,6 +324,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         move || run_core_events(handle, events_rx)
     });
 
+    video::prepare(&handle);
     spawn_named("aw-processes", {
         let handle = handle.clone();
         move || games::run_process_monitor(handle)
