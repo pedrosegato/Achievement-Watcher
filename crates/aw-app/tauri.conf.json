@@ -1,0 +1,59 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Achievement Watcher",
+  "version": "0.1.0",
+  "identifier": "io.github.pedrosegato.achievementwatcher",
+  "build": {
+    "frontendDist": "../../ui/dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "pnpm --dir ui dev",
+    "beforeBuildCommand": "pnpm --dir ui build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Achievement Watcher",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 900,
+        "minHeight": 560,
+        "visible": false,
+        "decorations": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: http://aw.localhost https://cdn.akamai.steamstatic.com https://shared.akamai.steamstatic.com https://shared.fastly.steamstatic.com https://steamcdn-a.akamaihd.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; frame-src http://aw.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "pedrosegato",
+    "shortDescription": "Achievement notifications for emulated Steam games",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "resources": {
+      "resources/presets": "presets",
+      "resources/sounds": "sounds"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "license": "LGPL-3.0-only",
+    "copyright": "Achievement Watcher contributors, LGPL-3.0-only"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUwQ0E2N0U0REFEOUYwOEIKUldTTDhObmE1R2ZLVUFYeXUzazEvVlAwdkV6aytNSnZPaGFRZDJJd00xOGhxeXhJeEllTlc2OUgK",
+      "endpoints": [
+        "https://github.com/pedrosegato/Achievement-Watcher/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}
