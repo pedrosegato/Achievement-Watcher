@@ -39,6 +39,8 @@ const SMALL_ENCODERS: [&str; 8] = [
     "h264_qsv",
 ];
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x0000_4000;
+const SAVE_FLAGS: u32 = CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS;
 const COPY_BLOCK: usize = 64 * 1024;
 const PROGRESS_EVERY: Duration = Duration::from_millis(200);
 const CANCELLED: &str = "cancelled";
@@ -114,12 +116,18 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 fn command(program: &Path) -> Command {
+    command_with(program, CREATE_NO_WINDOW)
+}
+
+fn command_with(program: &Path, flags: u32) -> Command {
     let mut command = Command::new(program);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        command.creation_flags(CREATE_NO_WINDOW);
+        command.creation_flags(flags);
     }
+    #[cfg(not(windows))]
+    let _ = flags;
     command
 }
 
@@ -640,7 +648,13 @@ fn save_clip(ffmpeg: &Path, dir: &Path, root: &Path, clip: &Clip) -> Result<(), 
     let out_dir = root.join(sanitize(clip.game));
     std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
     let target = unique_path(&out_dir, &sanitize(clip.achievement), "mp4");
-    run(command(ffmpeg).args(save_args(&list, &target, clip.encoder, clip.retime, length)))?;
+    run(command_with(ffmpeg, SAVE_FLAGS).args(save_args(
+        &list,
+        &target,
+        clip.encoder,
+        clip.retime,
+        length,
+    )))?;
     tracing::info!("video saved to {}", target.display());
     Ok(())
 }
@@ -800,6 +814,15 @@ fn download_blocking(
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[test]
+    fn saving_runs_below_normal_priority_without_a_window() {
+        assert_eq!(
+            SAVE_FLAGS & BELOW_NORMAL_PRIORITY_CLASS,
+            BELOW_NORMAL_PRIORITY_CLASS
+        );
+        assert_eq!(SAVE_FLAGS & CREATE_NO_WINDOW, CREATE_NO_WINDOW);
+    }
 
     #[test]
     fn copy_with_progress_reports_and_cancels() {
