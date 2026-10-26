@@ -1,0 +1,15 @@
+{
+  "name": "Default",
+  "author": "Achievement Watcher",
+  "version": "2.0.0",
+  "width": 520,
+  "height": 160,
+  "bleed": [40, 40],
+  "duration": 6.95,
+  "durations": {
+    "unlock": 6.95,
+    "rare": 7.65,
+    "platinum": 8.6,
+    "progress": 2.9
+  }
+}

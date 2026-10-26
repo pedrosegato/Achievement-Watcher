@@ -1,0 +1,2427 @@
+{
+  "enhanced": {
+    "boards": {},
+    "states": {
+      "ResetMessageRotation": { "tracks": [] },
+      "RotateMessages": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "FrontText",
+            "prop": "ty",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.267, "v": -100.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "BackText",
+            "prop": "ty",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 100.0, "k": "l" },
+              { "t": 0.233, "v": 100.0, "k": "l" },
+              { "t": 0.833, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          }
+        ]
+      },
+      "ShowHint": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          { "el": "TextGrid", "prop": "op", "begin": 0, "kf": [{ "t": 0.0, "v": 0.0, "k": "l" }] },
+          {
+            "el": "ActionHintStackPanel",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.066, "v": 0.0, "k": "l" },
+              { "t": 0.267, "v": 1.0, "k": "l" }
+            ]
+          }
+        ]
+      },
+      "Hidden": { "tracks": [] },
+      "PreRender": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "IconIntroSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.01, "k": "l" }]
+          },
+          {
+            "el": "IconAmbientLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.01, "k": "l" }]
+          },
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.01, "k": "l" }]
+          }
+        ]
+      },
+      "Show": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.533, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.867, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.533, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.867, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 0.967, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.1, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.633, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.967, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.1, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.633, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.967, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 1.067, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.2, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.733, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.067, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.2, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.733, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.067, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 1.167, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "MediumRippleEllipse2",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.3, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.833, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.167, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse2",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.3, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.833, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.167, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse2",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 1.433, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "IconIntroSequence",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.7, "v": 0.0, "k": "l" },
+              { "t": 1.067, "v": 1.2, "k": "s", "s": [0.52, 0.0, 0.59, 1.0] },
+              { "t": 1.333, "v": 1.0, "k": "s", "s": [0.34, 0.05, 0.69, 1.0] }
+            ]
+          },
+          {
+            "el": "IconIntroSequence",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.7, "v": 0.0, "k": "l" },
+              { "t": 1.067, "v": 1.2, "k": "s", "s": [0.52, 0.0, 0.59, 1.0] },
+              { "t": 1.333, "v": 1.0, "k": "s", "s": [0.34, 0.05, 0.69, 1.0] }
+            ]
+          },
+          {
+            "el": "IconIntroSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.667, "v": 1.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 2.6, "v": 1.0, "k": "l" },
+              { "t": 2.7, "v": 0.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "IconAmbientLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 2.5, "v": 0.0, "k": "l" },
+              { "t": 2.6, "v": 1.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.667, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.667, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.0, "k": "l" }, { "t": 0.167, "v": 1.0, "k": "l" }]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }]
+          },
+          {
+            "el": "ToastBackground",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 0.0, "k": "l" },
+              { "t": 2.433, "v": 1.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "ImageGrid",
+            "prop": "tx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 0.0, "k": "l" },
+              { "t": 2.433, "v": -280.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "TextGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.733, "v": 0.0, "k": "l" },
+              { "t": 2.333, "v": 1.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "TextGrid",
+            "prop": "tx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 900.0, "k": "l" },
+              { "t": 1.333, "v": 900.0, "k": "l" },
+              { "t": 2.333, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 0.0, "k": "l" },
+              { "t": 2.433, "v": 1.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0, "k": "d" }, { "t": 0.127, "v": 1, "k": "d" }]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.127, "v": 0.0, "k": "l" },
+              { "t": 0.167, "v": 1.0, "k": "l" }
+            ]
+          }
+        ],
+        "dur": 4.0
+      },
+      "ExitMessages": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "BackText",
+            "prop": "ty",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.267, "v": -100.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          }
+        ]
+      },
+      "Hide": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "ToastBackground",
+            "prop": "sx",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.667,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "ToastBackground",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.65, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "ImageGrid",
+            "prop": "tx",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.667,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 1.0, "k": "l" },
+              { "t": 0.8, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 0.8, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "sx",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.667,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.3, "v": 1.0, "k": "l" },
+              { "t": 0.667, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 0.667, "v": 0, "k": "d" }]
+          },
+          { "el": "TextGrid", "prop": "op", "begin": 0, "kf": [{ "t": 0.0, "v": 0.0, "k": "l" }] },
+          {
+            "el": "ActionHintStackPanel",
+            "prop": "op",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.5,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "ActionHintStackPanel",
+            "prop": "tx",
+            "begin": 0,
+            "to": -100.0,
+            "dur": 0.6,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1.0, "k": "l" }]
+          },
+          {
+            "el": "IconAmbientLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 1.0, "k": "l" },
+              { "t": 0.5, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.767, "v": 1.0, "k": "l" },
+              { "t": 1.367, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.767, "v": 1.0, "k": "l" },
+              { "t": 1.367, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.267, "v": 1.0, "k": "l" },
+              { "t": 0.866, "v": 1.0, "k": "l" },
+              { "t": 1.366, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.267, "v": 1.0, "k": "l" },
+              { "t": 0.866, "v": 1.0, "k": "l" },
+              { "t": 1.366, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.267, "v": 1, "k": "d" }, { "t": 1.366, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.97, "k": "l" },
+              { "t": 0.9, "v": 0.97, "k": "l" },
+              { "t": 1.5, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.3, "v": 1.0, "k": "l" },
+              { "t": 0.9, "v": 0.98, "k": "l" },
+              { "t": 1.5, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.9, "v": 1, "k": "d" }, { "t": 1.5, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.97, "k": "l" },
+              { "t": 0.933, "v": 0.97, "k": "l" },
+              { "t": 1.633, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.3, "v": 0.98, "k": "l" },
+              { "t": 0.933, "v": 0.98, "k": "l" },
+              { "t": 1.633, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.933, "v": 1, "k": "d" }, { "t": 1.633, "v": 0, "k": "d" }]
+          }
+        ]
+      }
+    },
+    "flipbooks": {
+      "IconIntroSequence": {
+        "FrameCount": "43",
+        "FrameWidth": "68",
+        "FrameHeight": "68",
+        "DesiredFrameRate": "30",
+        "hold": [1, 36]
+      },
+      "IconAmbientLoopSequence": {
+        "FrameCount": "1",
+        "FrameWidth": "68",
+        "FrameHeight": "68",
+        "DesiredFrameRate": "30",
+        "rep": 200.0
+      },
+      "IconExitLoopSequence": {
+        "FrameCount": "32",
+        "FrameWidth": "68",
+        "FrameHeight": "68",
+        "DesiredFrameRate": "30",
+        "hold": [31, 10]
+      }
+    }
+  },
+  "gleam": {
+    "boards": {
+      "GleamAnimation": {
+        "begin": 0,
+        "rep": 2.0,
+        "speed": 1.3,
+        "tracks": [
+          {
+            "el": "GleamRectangle",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 1.0, "v": 1, "k": "d" }]
+          },
+          {
+            "el": "GleamRectangle",
+            "prop": "tx",
+            "begin": 0,
+            "kf": [{ "t": 1.0, "v": -100.0, "k": "l" }, { "t": 3.0, "v": 100.0, "k": "l" }]
+          },
+          {
+            "el": "GleamRectangle",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 1.0, "v": 0.0, "k": "l" },
+              { "t": 2.0, "v": 0.8, "k": "l" },
+              { "t": 3.0, "v": 0.0, "k": "l" }
+            ]
+          }
+        ]
+      }
+    },
+    "states": {
+      "ResetMessageRotation": { "tracks": [] },
+      "RotateMessages": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "FrontText",
+            "prop": "ty",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.267, "v": -100.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "BackText",
+            "prop": "ty",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 100.0, "k": "l" },
+              { "t": 0.233, "v": 100.0, "k": "l" },
+              { "t": 0.833, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          }
+        ]
+      },
+      "ShowHint": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          { "el": "TextGrid", "prop": "op", "begin": 0, "kf": [{ "t": 0.0, "v": 0.0, "k": "l" }] },
+          {
+            "el": "ActionHintStackPanel",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.066, "v": 0.0, "k": "l" },
+              { "t": 0.267, "v": 1.0, "k": "l" }
+            ]
+          }
+        ]
+      },
+      "Hidden": { "tracks": [] },
+      "PreRender": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "IconIntroSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.01, "k": "l" }]
+          },
+          {
+            "el": "IconAmbientLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.01, "k": "l" }]
+          },
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.01, "k": "l" }]
+          }
+        ]
+      },
+      "Show": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.533, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.867, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.533, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.867, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 0.967, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.1, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.633, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.967, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.1, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.633, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.967, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 1.067, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.2, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.733, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.067, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.2, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.733, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.067, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 1.167, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "MediumRippleEllipse2",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.3, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.833, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.167, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse2",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.3, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.833, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.167, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse2",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 1.433, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "IconIntroSequence",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.7, "v": 0.0, "k": "l" },
+              { "t": 1.067, "v": 1.2, "k": "s", "s": [0.52, 0.0, 0.59, 1.0] },
+              { "t": 1.333, "v": 1.0, "k": "s", "s": [0.34, 0.05, 0.69, 1.0] }
+            ]
+          },
+          {
+            "el": "IconIntroSequence",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.7, "v": 0.0, "k": "l" },
+              { "t": 1.067, "v": 1.2, "k": "s", "s": [0.52, 0.0, 0.59, 1.0] },
+              { "t": 1.333, "v": 1.0, "k": "s", "s": [0.34, 0.05, 0.69, 1.0] }
+            ]
+          },
+          {
+            "el": "IconIntroSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.667, "v": 1.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 2.6, "v": 1.0, "k": "l" },
+              { "t": 2.7, "v": 0.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "IconAmbientLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 2.5, "v": 0.0, "k": "l" },
+              { "t": 2.6, "v": 1.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.667, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.667, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.0, "k": "l" }, { "t": 0.167, "v": 1.0, "k": "l" }]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }]
+          },
+          {
+            "el": "ToastBackground",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 0.0, "k": "l" },
+              { "t": 2.433, "v": 1.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "ImageGrid",
+            "prop": "tx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 0.0, "k": "l" },
+              { "t": 2.433, "v": -280.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "TextGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.733, "v": 0.0, "k": "l" },
+              { "t": 2.333, "v": 1.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "TextGrid",
+            "prop": "tx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 900.0, "k": "l" },
+              { "t": 1.333, "v": 900.0, "k": "l" },
+              { "t": 2.333, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 0.0, "k": "l" },
+              { "t": 2.433, "v": 1.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0, "k": "d" }, { "t": 0.127, "v": 1, "k": "d" }]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.127, "v": 0.0, "k": "l" },
+              { "t": 0.167, "v": 1.0, "k": "l" }
+            ]
+          }
+        ],
+        "dur": 4.0
+      },
+      "ExitMessages": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "BackText",
+            "prop": "ty",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.267, "v": -100.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          }
+        ]
+      },
+      "Hide": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.767, "v": 1.0, "k": "l" },
+              { "t": 1.367, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.767, "v": 1.0, "k": "l" },
+              { "t": 1.367, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1.0, "k": "l" }]
+          },
+          {
+            "el": "IconAmbientLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 1.0, "k": "l" },
+              { "t": 0.5, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.267, "v": 1.0, "k": "l" },
+              { "t": 0.867, "v": 1.0, "k": "l" },
+              { "t": 1.366, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.267, "v": 1.0, "k": "l" },
+              { "t": 0.866, "v": 1.0, "k": "l" },
+              { "t": 1.366, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.267, "v": 1, "k": "d" }, { "t": 1.366, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.97, "k": "l" },
+              { "t": 0.9, "v": 0.97, "k": "l" },
+              { "t": 1.5, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.3, "v": 1.0, "k": "l" },
+              { "t": 0.9, "v": 0.98, "k": "l" },
+              { "t": 1.5, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.9, "v": 1, "k": "d" }, { "t": 1.5, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.97, "k": "l" },
+              { "t": 0.933, "v": 0.97, "k": "l" },
+              { "t": 1.633, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.3, "v": 0.98, "k": "l" },
+              { "t": 0.933, "v": 0.98, "k": "l" },
+              { "t": 1.633, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.933, "v": 1, "k": "d" }, { "t": 1.633, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "ToastBackground",
+            "prop": "sx",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.667,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "ToastBackground",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.65, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "ImageGrid",
+            "prop": "tx",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.667,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 1.0, "k": "l" },
+              { "t": 0.8, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 0.8, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "sx",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.667,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.3, "v": 1.0, "k": "l" },
+              { "t": 0.667, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 0.667, "v": 0, "k": "d" }]
+          },
+          { "el": "TextGrid", "prop": "op", "begin": 0, "kf": [{ "t": 0.0, "v": 0.0, "k": "l" }] },
+          {
+            "el": "ActionHintStackPanel",
+            "prop": "op",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.5,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "ActionHintStackPanel",
+            "prop": "tx",
+            "begin": 0,
+            "to": -100.0,
+            "dur": 0.6,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          }
+        ]
+      }
+    },
+    "flipbooks": {
+      "IconIntroSequence": {
+        "FrameCount": "42",
+        "FrameWidth": "84",
+        "FrameHeight": "84",
+        "DesiredFrameRate": "30",
+        "hold": [1, 36]
+      },
+      "IconAmbientLoopSequence": {
+        "FrameCount": "20",
+        "FrameWidth": "84",
+        "FrameHeight": "84",
+        "DesiredFrameRate": "30",
+        "rep": 10.0
+      },
+      "IconExitLoopSequence": {
+        "FrameCount": "32",
+        "FrameWidth": "84",
+        "FrameHeight": "84",
+        "DesiredFrameRate": "30",
+        "hold": [31, 10]
+      }
+    }
+  },
+  "aurora": {
+    "boards": {
+      "RippleAnimation": {
+        "begin": 2.0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "RippleImage",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "d" },
+              { "t": 1.0, "v": 1.5, "k": "s", "s": [0.0, 0.0, 0.0, 1.0] }
+            ]
+          },
+          {
+            "el": "RippleImage",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "d" },
+              { "t": 1.0, "v": 1.5, "k": "s", "s": [0.0, 0.0, 0.0, 1.0] }
+            ]
+          },
+          {
+            "el": "RippleImage",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 1.0, "k": "d" },
+              { "t": 1.0, "v": 0.0, "k": "s", "s": [1.0, 0.0, 1.0, 1.0] }
+            ]
+          }
+        ]
+      },
+      "PulseAnimation": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "PulseImage",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.6, "k": "d" },
+              { "t": 0.667, "v": 1.35, "k": "s", "s": [0.6, 0.0, 0.1, 1.0] }
+            ]
+          },
+          {
+            "el": "PulseImage",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.6, "k": "d" },
+              { "t": 0.667, "v": 1.35, "k": "s", "s": [0.6, 0.0, 0.1, 1.0] }
+            ]
+          },
+          {
+            "el": "PulseImage",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "d" },
+              { "t": 0.1, "v": 0.9, "k": "l" },
+              { "t": 0.667, "v": 0.7, "k": "l" },
+              { "t": 1.2, "v": 0.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "PulseImageDelayed",
+            "prop": "sx",
+            "begin": 0.35,
+            "kf": [
+              { "t": 0.0, "v": 0.6, "k": "d" },
+              { "t": 0.667, "v": 1.35, "k": "s", "s": [0.6, 0.0, 0.1, 1.0] }
+            ]
+          },
+          {
+            "el": "PulseImageDelayed",
+            "prop": "sy",
+            "begin": 0.35,
+            "kf": [
+              { "t": 0.0, "v": 0.6, "k": "d" },
+              { "t": 0.667, "v": 1.35, "k": "s", "s": [0.6, 0.0, 0.1, 1.0] }
+            ]
+          },
+          {
+            "el": "PulseImageDelayed",
+            "prop": "op",
+            "begin": 0.35,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "d" },
+              { "t": 0.1, "v": 0.9, "k": "l" },
+              { "t": 0.667, "v": 0.7, "k": "l" },
+              { "t": 1.2, "v": 0.0, "k": "l" }
+            ]
+          }
+        ]
+      },
+      "GlowAnimation": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "GlowLayer",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "d" },
+              { "t": 0.9, "v": 1.0, "k": "l" },
+              { "t": 3.3, "v": 1.0, "k": "l" },
+              { "t": 4.5, "v": 0.8, "k": "s", "s": [0.4, 0.0, 0.2, 1.0] }
+            ]
+          },
+          {
+            "el": "GlowImageA",
+            "prop": "rot",
+            "begin": 0,
+            "from": 0.0,
+            "to": 360.0,
+            "dur": 9.0,
+            "rev": false,
+            "rep": -1
+          },
+          {
+            "el": "GlowImageA",
+            "prop": "sx",
+            "begin": 0,
+            "from": 0.92,
+            "to": 1.08,
+            "dur": 2.5,
+            "rev": true,
+            "rep": -1
+          },
+          {
+            "el": "GlowImageA",
+            "prop": "sy",
+            "begin": 0,
+            "from": 0.92,
+            "to": 1.08,
+            "dur": 2.5,
+            "rev": true,
+            "rep": -1
+          },
+          {
+            "el": "GlowImageA",
+            "prop": "op",
+            "begin": 0,
+            "from": 0.55,
+            "to": 0.85,
+            "dur": 3.3,
+            "rev": true,
+            "rep": -1
+          },
+          {
+            "el": "GlowImageB",
+            "prop": "rot",
+            "begin": 0,
+            "from": 360.0,
+            "to": 0.0,
+            "dur": 7.0,
+            "rev": false,
+            "rep": -1
+          },
+          {
+            "el": "GlowImageB",
+            "prop": "sx",
+            "begin": 0,
+            "from": 1.08,
+            "to": 0.92,
+            "dur": 2.0,
+            "rev": true,
+            "rep": -1
+          },
+          {
+            "el": "GlowImageB",
+            "prop": "sy",
+            "begin": 0,
+            "from": 1.08,
+            "to": 0.92,
+            "dur": 2.0,
+            "rev": true,
+            "rep": -1
+          },
+          {
+            "el": "GlowImageB",
+            "prop": "op",
+            "begin": 0,
+            "from": 0.85,
+            "to": 0.55,
+            "dur": 2.3,
+            "rev": true,
+            "rep": -1
+          }
+        ]
+      },
+      "GleamAnimation": {
+        "begin": 2.631,
+        "rep": 2.0,
+        "speed": 1.3,
+        "tracks": [
+          {
+            "el": "GleamRectangle",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 1.0, "v": 1, "k": "d" }]
+          },
+          {
+            "el": "GleamRectangle",
+            "prop": "tx",
+            "begin": 0,
+            "kf": [{ "t": 1.0, "v": -100.0, "k": "l" }, { "t": 3.0, "v": 100.0, "k": "l" }]
+          },
+          {
+            "el": "GleamRectangle",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 1.0, "v": 0.0, "k": "l" },
+              { "t": 2.0, "v": 0.8, "k": "l" },
+              { "t": 3.0, "v": 0.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle1",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 1.0, "v": 0.0, "k": "l" },
+              { "t": 1.85, "v": 1.0, "k": "l" },
+              { "t": 2.75, "v": 0.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle1",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 1.0, "v": 0.3, "k": "l" },
+              { "t": 1.85, "v": 2.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 2.75, "v": 0.3, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle1",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 1.0, "v": 0.3, "k": "l" },
+              { "t": 1.85, "v": 1.6, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 2.75, "v": 0.3, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle2",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 1.3, "v": 0.0, "k": "l" },
+              { "t": 2.1, "v": 1.0, "k": "l" },
+              { "t": 2.9, "v": 0.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle2",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 1.3, "v": 0.3, "k": "l" },
+              { "t": 2.1, "v": 1.6, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 2.9, "v": 0.3, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle2",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 1.3, "v": 0.3, "k": "l" },
+              { "t": 2.1, "v": 2.4, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 2.9, "v": 0.3, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle3",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 1.4, "v": 0.0, "k": "l" },
+              { "t": 2.35, "v": 1.0, "k": "l" },
+              { "t": 3.3, "v": 0.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle3",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 1.4, "v": 0.3, "k": "l" },
+              { "t": 2.35, "v": 3.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 3.3, "v": 0.3, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle3",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 1.4, "v": 0.3, "k": "l" },
+              { "t": 2.35, "v": 3.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 3.3, "v": 0.3, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle4",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 1.75, "v": 0.0, "k": "l" },
+              { "t": 2.55, "v": 1.0, "k": "l" },
+              { "t": 3.4, "v": 0.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle4",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 1.75, "v": 0.3, "k": "l" },
+              { "t": 2.55, "v": 2.2, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 3.4, "v": 0.3, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle4",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 1.75, "v": 0.3, "k": "l" },
+              { "t": 2.55, "v": 1.6, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 3.4, "v": 0.3, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle5",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 1.95, "v": 0.0, "k": "l" },
+              { "t": 2.85, "v": 1.0, "k": "l" },
+              { "t": 3.75, "v": 0.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle5",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 1.95, "v": 0.3, "k": "l" },
+              { "t": 2.85, "v": 2.4, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 3.75, "v": 0.3, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle5",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 1.95, "v": 0.3, "k": "l" },
+              { "t": 2.85, "v": 1.8, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 3.75, "v": 0.3, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle6",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 2.2, "v": 0.0, "k": "l" },
+              { "t": 3.05, "v": 1.0, "k": "l" },
+              { "t": 3.95, "v": 0.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle6",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 2.2, "v": 0.3, "k": "l" },
+              { "t": 3.05, "v": 2.7, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 3.95, "v": 0.3, "k": "l" }
+            ]
+          },
+          {
+            "el": "Sparkle6",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 2.2, "v": 0.3, "k": "l" },
+              { "t": 3.05, "v": 3.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } },
+              { "t": 3.95, "v": 0.3, "k": "l" }
+            ]
+          }
+        ]
+      }
+    },
+    "states": {
+      "ResetMessageRotation": { "tracks": [] },
+      "RotateMessages": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "FrontText",
+            "prop": "ty",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.267, "v": -100.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "BackText",
+            "prop": "ty",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 100.0, "k": "l" },
+              { "t": 0.233, "v": 100.0, "k": "l" },
+              { "t": 0.833, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          }
+        ]
+      },
+      "ShowHint": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          { "el": "TextGrid", "prop": "op", "begin": 0, "kf": [{ "t": 0.0, "v": 0.0, "k": "l" }] },
+          {
+            "el": "ActionHintStackPanel",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.066, "v": 0.0, "k": "l" },
+              { "t": 0.267, "v": 1.0, "k": "l" }
+            ]
+          }
+        ]
+      },
+      "Hidden": { "tracks": [] },
+      "PreRender": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "IconIntroSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.01, "k": "l" }]
+          },
+          {
+            "el": "IconAmbientLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.01, "k": "l" }]
+          },
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.01, "k": "l" }]
+          }
+        ]
+      },
+      "Show": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "AuroraFlipBook",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 2.433, "v": 0.0, "k": "l" },
+              { "t": 3.433, "v": 1.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.533, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.867, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.533, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.867, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 0.967, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.1, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.633, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.967, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.1, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.633, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 0.967, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 1.067, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.2, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.733, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.067, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.2, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.733, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.067, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 1.167, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "MediumRippleEllipse2",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.3, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.833, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.167, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse2",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.3, "v": 0.0, "k": "s", "s": [0.71, 0.0, 1.0, 1.0] },
+              { "t": 0.833, "v": 1.12, "k": "s", "s": [0.54, 0.0, 0.81, 1.0] },
+              { "t": 1.167, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse2",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 1.433, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "IconIntroSequence",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.7, "v": 0.0, "k": "l" },
+              { "t": 1.067, "v": 1.2, "k": "s", "s": [0.52, 0.0, 0.59, 1.0] },
+              { "t": 1.333, "v": 1.0, "k": "s", "s": [0.34, 0.05, 0.69, 1.0] }
+            ]
+          },
+          {
+            "el": "IconIntroSequence",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.7, "v": 0.0, "k": "l" },
+              { "t": 1.067, "v": 1.2, "k": "s", "s": [0.52, 0.0, 0.59, 1.0] },
+              { "t": 1.333, "v": 1.0, "k": "s", "s": [0.34, 0.05, 0.69, 1.0] }
+            ]
+          },
+          {
+            "el": "IconIntroSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.667, "v": 1.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.667, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.667, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 1.0, "k": "s", "s": [0.36, 0.12, 0.5, 1.0] }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0.0, "k": "l" }, { "t": 0.167, "v": 1.0, "k": "l" }]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }]
+          },
+          {
+            "el": "ToastBackground",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 0.0, "k": "l" },
+              { "t": 2.433, "v": 1.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "ImageGrid",
+            "prop": "tx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 0.0, "k": "l" },
+              { "t": 2.433, "v": -280.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "TextGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.733, "v": 0.0, "k": "l" },
+              { "t": 2.333, "v": 1.0, "k": "l" }
+            ]
+          },
+          {
+            "el": "TextGrid",
+            "prop": "tx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 900.0, "k": "l" },
+              { "t": 1.333, "v": 900.0, "k": "l" },
+              { "t": 2.333, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 1.433, "v": 0.0, "k": "l" },
+              { "t": 2.433, "v": 1.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseOut" } }
+            ]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 0, "k": "d" }, { "t": 0.127, "v": 1, "k": "d" }]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.127, "v": 0.0, "k": "l" },
+              { "t": 0.167, "v": 1.0, "k": "l" }
+            ]
+          }
+        ],
+        "dur": 4.0
+      },
+      "ExitMessages": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "BackText",
+            "prop": "ty",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.0, "k": "l" },
+              { "t": 0.267, "v": -100.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          }
+        ]
+      },
+      "Hide": {
+        "begin": 0,
+        "rep": 1,
+        "speed": 1.0,
+        "tracks": [
+          {
+            "el": "AuroraFlipBook",
+            "prop": "op",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.2,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "GlowLayer",
+            "prop": "op",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.5,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.767, "v": 1.0, "k": "l" },
+              { "t": 1.367, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.767, "v": 1.0, "k": "l" },
+              { "t": 1.367, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "IconExitLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1.0, "k": "l" }]
+          },
+          {
+            "el": "IconAmbientLoopSequence",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 1.0, "k": "l" },
+              { "t": 0.5, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.267, "v": 1.0, "k": "l" },
+              { "t": 0.867, "v": 1.0, "k": "l" },
+              { "t": 1.366, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.267, "v": 1.0, "k": "l" },
+              { "t": 0.866, "v": 1.0, "k": "l" },
+              { "t": 1.366, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DarkRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.267, "v": 1, "k": "d" }, { "t": 1.366, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.97, "k": "l" },
+              { "t": 0.9, "v": 0.97, "k": "l" },
+              { "t": 1.5, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.3, "v": 1.0, "k": "l" },
+              { "t": 0.9, "v": 0.98, "k": "l" },
+              { "t": 1.5, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "MediumRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.9, "v": 1, "k": "d" }, { "t": 1.5, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sx",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 0.97, "k": "l" },
+              { "t": 0.933, "v": 0.97, "k": "l" },
+              { "t": 1.633, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "sy",
+            "begin": 0,
+            "kf": [
+              { "t": 0.3, "v": 0.98, "k": "l" },
+              { "t": 0.933, "v": 0.98, "k": "l" },
+              { "t": 1.633, "v": 0.0, "k": "e", "e": { "t": "back", "a": 0.5, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "LightRippleEllipse",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.933, "v": 1, "k": "d" }, { "t": 1.633, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "ToastBackground",
+            "prop": "sx",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.667,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "ToastBackground",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.65, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "ImageGrid",
+            "prop": "tx",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.667,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.0, "v": 1.0, "k": "l" },
+              { "t": 0.8, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "ImageBackgroundGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 0.8, "v": 0, "k": "d" }]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "sx",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.667,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "op",
+            "begin": 0,
+            "kf": [
+              { "t": 0.3, "v": 1.0, "k": "l" },
+              { "t": 0.667, "v": 0.0, "k": "e", "e": { "t": "exp", "k": 7.0, "m": "EaseIn" } }
+            ]
+          },
+          {
+            "el": "DropshadowGrid",
+            "prop": "vis",
+            "begin": 0,
+            "kf": [{ "t": 0.0, "v": 1, "k": "d" }, { "t": 0.667, "v": 0, "k": "d" }]
+          },
+          { "el": "TextGrid", "prop": "op", "begin": 0, "kf": [{ "t": 0.0, "v": 0.0, "k": "l" }] },
+          {
+            "el": "ActionHintStackPanel",
+            "prop": "op",
+            "begin": 0,
+            "to": 0.0,
+            "dur": 0.5,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          },
+          {
+            "el": "ActionHintStackPanel",
+            "prop": "tx",
+            "begin": 0,
+            "to": -100.0,
+            "dur": 0.6,
+            "rev": false,
+            "rep": 1,
+            "e": { "t": "exp", "k": 7.0, "m": "EaseIn" }
+          }
+        ]
+      }
+    },
+    "flipbooks": {
+      "AuroraFlipBook": {
+        "FrameCount": "60",
+        "FrameWidth": "260",
+        "FrameHeight": "120",
+        "DesiredFrameRate": "8",
+        "Boomerang": "True",
+        "FrameSource": "ms-appx:///Assets/Aurora.png",
+        "rep": -1
+      },
+      "IconIntroBase": {
+        "FrameCount": "120",
+        "FrameWidth": "160",
+        "FrameHeight": "160",
+        "DesiredFrameRate": "30"
+      },
+      "IconIntroHighlight": {
+        "FrameCount": "120",
+        "FrameWidth": "215",
+        "FrameHeight": "215",
+        "DesiredFrameRate": "30"
+      },
+      "IconAmbientBase": {
+        "FrameCount": "60",
+        "FrameWidth": "160",
+        "FrameHeight": "160",
+        "DesiredFrameRate": "30",
+        "rep": -1
+      },
+      "IconAmbientHighlight": {
+        "FrameCount": "60",
+        "FrameWidth": "106",
+        "FrameHeight": "106",
+        "DesiredFrameRate": "30",
+        "rep": -1
+      },
+      "IconExitBase": {
+        "FrameCount": "41",
+        "FrameWidth": "160",
+        "FrameHeight": "160",
+        "DesiredFrameRate": "30"
+      },
+      "IconExitHighlight": {
+        "FrameCount": "41",
+        "FrameWidth": "106",
+        "FrameHeight": "106",
+        "DesiredFrameRate": "30"
+      }
+    }
+  },
+  "laurel": {
+    "1": {
+      "stem": {
+        "d": "M56.273,100.737 C71.112,100.737,82.803,94.893,91.072,86.58",
+        "w": 1.569,
+        "cx": 56.273,
+        "cy": 100.737,
+        "in": [0.1, 0.5],
+        "out": [0.433, 0.433]
+      },
+      "leaves": [
+        {
+          "d": "M48.654,-31.684 C48.163,-25.602,45.346,-23.118,47.626,-11.183 C53.943,-15.597,55.571,-24.598,48.654,-31.684z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": 69.2,
+          "tx": 40.088,
+          "ty": 100.488,
+          "in": [0.367, 0.933],
+          "r1": 34.2,
+          "s1": 1.0,
+          "out": [0.0, 0.25],
+          "hide": 0.5
+        },
+        {
+          "d": "M48.956,-31.747 C48.43,-24.68,43.737,-21.537,47.626,-11.183 C52.884,-17.048,55.367,-26.838,48.956,-31.747z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": -29.7,
+          "tx": 31.055,
+          "ty": 106.473,
+          "in": [0.2, 0.8],
+          "r1": 21.3,
+          "s1": 0.961,
+          "out": [0.067, 0.317],
+          "hide": 0.317
+        },
+        {
+          "d": "M48.999,-31.845 C48.54,-25.794,43.412,-17.751,47.626,-11.183 C53.276,-17.382,55.885,-26.497,48.999,-31.845z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": 17.3,
+          "tx": 13.888,
+          "ty": 111.476,
+          "in": [0.0, 0.6],
+          "r1": 41.3,
+          "s1": 1.033,
+          "out": [0.167, 0.417],
+          "hide": 0.417
+        },
+        {
+          "d": "M49.003,-32.571 C46.084,-28.364,45.876,-19.866,47.579,-10.994 C53.421,-11.328,54.708,-24.245,49.003,-32.571z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": 136.9,
+          "tx": 26.591,
+          "ty": 108.632,
+          "in": [0.067, 0.667],
+          "r1": 76.9,
+          "s1": 1.025,
+          "out": [0.133, 0.383],
+          "hide": 0.383
+        },
+        {
+          "d": "M49.654,-34.858 C46.166,-31.731,46.841,-18.904,47.587,-11.084 C53.621,-11.473,55.41,-26.073,49.654,-34.858z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": 118.3,
+          "tx": 8.297,
+          "ty": 111.918,
+          "in": [0.0, 0.567],
+          "r1": 95.3,
+          "s1": 1.051,
+          "out": [0.183, 0.433],
+          "hide": 0.433
+        }
+      ]
+    },
+    "2": {
+      "stem": {
+        "d": "M56.273,100.737 C83.253,100.737,99.827,81.417,104.347,63.07",
+        "w": 1.569,
+        "cx": 56.273,
+        "cy": 100.737,
+        "in": [0.1, 0.5],
+        "out": [0.467, 0.467]
+      },
+      "leaves": [
+        {
+          "d": "M48.654,-31.684 C48.163,-25.602,43.702,-25.7,47.626,-11.183 C52.53,-14.565,54.539,-26.14,48.654,-31.684z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": 30.0,
+          "tx": 56.068,
+          "ty": 75.967,
+          "in": [0.433, 0.933],
+          "r1": 0.0,
+          "s1": 1.0,
+          "out": [0.0, 0.25],
+          "hide": 0.5
+        },
+        {
+          "d": "M48.705,-31.919 C48.187,-25.645,43.439,-19.909,47.626,-11.183 C52.221,-16.37,55.038,-27.595,48.705,-31.919z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": -63.0,
+          "tx": 53.027,
+          "ty": 83.765,
+          "in": [0.3, 0.8],
+          "r1": -12.0,
+          "s1": 0.81,
+          "out": [0.067, 0.317],
+          "hide": 0.317
+        },
+        {
+          "d": "M48.654,-31.684 C48.203,-24.178,43.73,-22.22,47.626,-11.183 C52.731,-16.727,55.034,-26.599,48.654,-31.684z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": -46.6,
+          "tx": 44.199,
+          "ty": 96.468,
+          "in": [0.133, 0.633],
+          "r1": 4.4,
+          "s1": 0.883,
+          "out": [0.15, 0.384],
+          "hide": 0.384
+        },
+        {
+          "d": "M48.956,-31.747 C48.43,-24.68,43.737,-21.537,47.626,-11.183 C52.884,-17.048,55.367,-26.838,48.956,-31.747z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": -29.7,
+          "tx": 31.055,
+          "ty": 106.473,
+          "in": [0.067, 0.567],
+          "r1": 21.3,
+          "s1": 0.961,
+          "out": [0.184, 0.434],
+          "hide": 0.434
+        },
+        {
+          "d": "M48.999,-31.845 C48.54,-25.794,43.412,-17.751,47.626,-11.183 C53.276,-17.382,55.885,-26.497,48.999,-31.845z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": 17.3,
+          "tx": 13.888,
+          "ty": 111.476,
+          "in": [0.0, 0.5],
+          "r1": 41.3,
+          "s1": 1.033,
+          "out": [0.217, 0.467],
+          "hide": 0.467
+        },
+        {
+          "d": "M49.478,-33.175 C46.504,-30.487,45.299,-19.893,47.626,-11.183 C53.213,-13.066,54.324,-23.581,49.478,-33.175z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": 101.7,
+          "tx": 50.673,
+          "ty": 88.277,
+          "in": [0.2, 0.7],
+          "r1": 39.2,
+          "s1": 0.81,
+          "out": [0.117, 0.367],
+          "hide": 0.367
+        },
+        {
+          "d": "M48.756,-31.86 C45.613,-28.317,46.131,-19.509,47.626,-11.183 C52.876,-12.446,54.21,-22.585,48.756,-31.86z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": 119.4,
+          "tx": 40.275,
+          "ty": 100.196,
+          "in": [0.1, 0.6],
+          "r1": 59.4,
+          "s1": 0.965,
+          "out": [0.167, 0.417],
+          "hide": 0.417
+        },
+        {
+          "d": "M49.003,-32.571 C46.084,-28.364,45.876,-19.866,47.579,-10.994 C53.421,-11.328,54.708,-24.245,49.003,-32.571z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": 136.9,
+          "tx": 26.591,
+          "ty": 108.632,
+          "in": [0.033, 0.533],
+          "r1": 76.9,
+          "s1": 1.025,
+          "out": [0.2, 0.45],
+          "hide": 0.45
+        },
+        {
+          "d": "M49.654,-34.858 C46.166,-31.731,46.841,-18.904,47.587,-11.084 C53.621,-11.473,55.41,-26.073,49.654,-34.858z",
+          "cx": 47.751,
+          "cy": -10.909,
+          "r0": 118.3,
+          "tx": 8.297,
+          "ty": 111.918,
+          "in": [0.0, 0.467],
+          "r1": 95.3,
+          "s1": 1.051,
+          "out": [0.234, 0.467],
+          "hide": 0.467
+        }
+      ]
+    }
+  }
+}

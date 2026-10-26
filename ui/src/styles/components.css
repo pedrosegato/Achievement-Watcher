@@ -1,0 +1,359 @@
+html.overlay,
+html.overlay body {
+  background: transparent;
+}
+
+.overlay-panel {
+  background: color-mix(in srgb, var(--raised) 92%, transparent);
+  box-shadow: var(--shadow);
+}
+
+.game-hero {
+  height: clamp(250px, 19vw, 360px);
+  container-type: size;
+  --logo-area: 0.6;
+}
+
+.game-hero-shade {
+  background: linear-gradient(180deg, rgba(8, 9, 11, 0.5), rgba(8, 9, 11, 0) 30%);
+}
+
+.hero-logo {
+  position: absolute;
+  display: flex;
+  width: calc(var(--w) * 1cqw);
+  height: calc(var(--h) * var(--logo-area) * 1cqh);
+}
+
+.hero-logo img {
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.45));
+}
+
+.game-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 28px;
+  align-items: start;
+}
+
+.game-panel {
+  position: sticky;
+  top: 12px;
+}
+
+@media (max-width: 860px) {
+  .game-cols {
+    grid-template-columns: 1fr;
+  }
+
+  .game-panel {
+    position: static;
+    order: -1;
+  }
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.library-grid > div {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 288px;
+  overflow-clip-margin: 6px;
+}
+
+.game-card:not(:hover) .rare-icon::before,
+.game-card:not(:hover) .rare-icon::after,
+.game-card:not(:hover) .rare-rim {
+  animation-play-state: paused;
+}
+
+.game-card-platinum {
+  background:
+    radial-gradient(130% 70% at 50% 125%, var(--plat-glow), transparent 62%), var(--surface);
+}
+
+.game-card:has(.card-open:focus-visible) {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.pop-surface[data-state="delayed-open"],
+.pop-surface[data-state="instant-open"],
+.pop-surface[data-state="open"] {
+  animation: pop-in var(--dur-fast) var(--ease-out);
+}
+
+.pop-surface[data-state="closed"] {
+  animation: fade-out var(--dur-fast) var(--ease-in);
+}
+
+.dialog-overlay[data-state="open"] {
+  animation: fade-in var(--dur-med) var(--ease-out);
+}
+
+.dialog-overlay[data-state="closed"] {
+  animation: fade-out var(--dur-out) var(--ease-in);
+}
+
+.dialog-content[data-state="open"] {
+  animation: rise-in var(--dur-med) var(--ease-smooth);
+}
+
+.dialog-content[data-state="closed"] {
+  animation: rise-out var(--dur-out) var(--ease-in);
+}
+
+.collapse-head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.collapse-caret {
+  flex: none;
+  margin-left: -2px;
+  color: var(--dim);
+  transform: rotate(-90deg);
+  transition: transform var(--dur-collapse) var(--ease-smooth);
+}
+
+.collapse-section[data-state="open"] .collapse-caret {
+  transform: none;
+}
+
+.collapse-title {
+  margin-left: -4px;
+  white-space: nowrap;
+}
+
+.collapse-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.collapse-count {
+  font-weight: 500;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.collapse-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-collapse) var(--ease-smooth);
+}
+
+.collapse-section[data-state="closed"] .collapse-body {
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-collapse) var(--ease-inout) 90ms;
+}
+
+.collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.collapse-row {
+  transition:
+    opacity var(--dur-collapse) var(--ease-smooth),
+    transform var(--dur-collapse) var(--ease-smooth);
+  transition-delay: calc(60ms + var(--i) * var(--stagger));
+}
+
+.collapse-card > .collapse-row,
+.dialog-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
+}
+
+.collapse-section[data-state="closed"] .collapse-row {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.985);
+  transition:
+    opacity var(--dur-out) var(--ease-in),
+    transform var(--dur-out) var(--ease-in);
+  transition-delay: calc((var(--n) - 1 - var(--i)) * var(--stagger) * 0.6);
+}
+
+.collapse-peek {
+  display: flex;
+  gap: 4px;
+  max-width: 0;
+  overflow: clip;
+  overflow-clip-margin: 10px;
+  transition: max-width var(--dur-collapse) var(--ease-smooth);
+}
+
+.collapse-section[data-state="closed"] .collapse-peek {
+  max-width: 240px;
+  transition-delay: 120ms;
+}
+
+.collapse-peek > span {
+  display: flex;
+  opacity: 0;
+  transform: translateX(10px) scale(0.5);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.collapse-section[data-state="closed"] .collapse-peek > span {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-pop) var(--ease-pop);
+  transition-delay: calc(170ms + var(--j) * var(--stagger));
+}
+
+.collapse-card {
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.collapse-card > .collapse-row + .collapse-row {
+  border-top: 1px solid var(--line);
+}
+
+.reveal-in {
+  animation: rise-in var(--dur-med) var(--ease-out);
+}
+
+.settings-section[data-state="active"] {
+  animation: rise-in var(--dur-med) var(--ease-out);
+}
+
+.pack-row:has(input:focus-visible) {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.sound-beat {
+  animation: sound-beat 400ms var(--ease-out) infinite alternate;
+}
+
+.diag-sections .collapse-section {
+  border-top: 1px solid var(--line);
+}
+
+.diag-sections .collapse-head {
+  padding: 10px 0;
+  color: var(--text);
+  font-size: 13.5px;
+}
+
+.diag-sections .collapse-rule {
+  display: none;
+}
+
+.diag-sections .collapse-inner {
+  padding-left: 24px;
+}
+
+.setting-group-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-collapse) var(--ease-smooth);
+}
+
+.setting-group[data-state="off"] .setting-group-body {
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-collapse) var(--ease-inout);
+}
+
+.setting-group .collapse-head {
+  padding: 12px 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.setting-group .collapse-head:hover {
+  color: var(--text);
+}
+
+.setting-group .collapse-rule {
+  background: none;
+}
+
+.setting-group .collapse-row:first-child > * {
+  border-top: 1px solid var(--line);
+}
+
+.setting-group .collapse-row:last-child > * {
+  border-bottom-width: 0;
+}
+
+.spinning {
+  animation: spin-turn var(--dur-spin) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+
+  .setting-group-body {
+    transition: none;
+  }
+}
+
+@keyframes spin-turn {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes sound-beat {
+  to {
+    transform: scale(1.25);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes rise-out {
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "PlayStation 4",
+  "author": "Achievement Watcher",
+  "version": "2.0.0",
+  "width": 564,
+  "height": 134,
+  "bleed": [32, 32],
+  "duration": 6.0
+}
