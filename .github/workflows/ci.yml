@@ -1,10 +1,6 @@
 name: ci
 on:
-  push:
-    branches: [refactor]
-    paths: ["crates/**", "ui/**", "Cargo.toml", "Cargo.lock", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "biome.json", "scripts/**", ".github/workflows/ci.yml"]
-  pull_request:
-    paths: ["crates/**", "ui/**", "Cargo.toml", "Cargo.lock", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "biome.json", "scripts/**", ".github/workflows/ci.yml"]
+  workflow_dispatch:
 jobs:
   test:
     runs-on: windows-latest

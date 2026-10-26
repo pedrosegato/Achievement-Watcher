@@ -70,7 +70,7 @@ Releases are built locally:
 
 The updater key is read from `TAURI_SIGNING_PRIVATE_KEY`, or from `~/.tauri/achievement-watcher.key` when that is not set. `pnpm release --notes notes.md` uses your own release notes instead of GitHub's generated ones, and `pnpm release --dry-run` stops before publishing, leaving the files in `target/release/upload`.
 
-Pushing a `v*` tag instead runs `.github/workflows/release.yml`, which builds the same files on GitHub Actions as a draft release. It needs the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+`.github/workflows/release.yml` builds the same files on GitHub Actions as a draft release, but only when started by hand from the Actions tab with the tag as input. It needs the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
 ## Build from source
 
@@ -92,7 +92,7 @@ cargo run -p aw-cli -- scan --games-root "C:\Games"
 cargo run -p aw-cli -- watch
 ```
 
-Checks: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `pnpm check`.
+Checks: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `pnpm check`. The same checks run on GitHub Actions only when the `ci` workflow is started by hand.
 
 ## Repository layout
 
