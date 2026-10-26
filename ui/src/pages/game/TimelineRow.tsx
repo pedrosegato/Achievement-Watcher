@@ -16,7 +16,7 @@ export function TimelineRow({ row }: TimelineRowProps) {
     <div className="flex items-center gap-3.5 px-3.5 py-[11px]">
       <AchievementIcon src={row.iconUrl} size={40} rare={isRare(row.percent, threshold)} />
       <div className="mr-auto flex min-w-0 flex-col">
-        <span className="font-[650] text-[14px]">{row.displayName}</span>
+        <span className="line-clamp-2 font-[650] text-[14px]">{row.displayName}</span>
         <span className="text-[12.5px] text-muted">{row.description}</span>
         {row.percent !== null && (
           <span className="text-[12px] text-dim">

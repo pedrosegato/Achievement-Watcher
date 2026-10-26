@@ -37,7 +37,7 @@ export const DialogRow = memo(function DialogRow({
           className={cn(side && "row-span-2 @md:row-span-1")}
         />
         <div className="flex min-w-0 flex-col">
-          <span className={cn("font-[650] text-[14px]", locked && "text-muted")}>
+          <span className={cn("line-clamp-2 font-[650] text-[14px]", locked && "text-muted")}>
             {row.displayName}
           </span>
           <span className="text-[12.5px] text-muted">{row.description}</span>
