@@ -3,11 +3,14 @@ pub mod binkv;
 mod codex;
 mod creamapi;
 mod generic_ini;
+mod generic_json;
 mod goldberg;
 pub mod ini;
+mod lumaplay;
 mod onlinefix;
 mod razor;
 mod reloaded;
+mod rune;
 pub mod smartsteam;
 pub mod steamstats;
 mod tenoke;
@@ -26,11 +29,21 @@ pub enum Format {
     ReloadedIni,
     AchievIni,
     CreamApi,
+    GenericJson,
+    RuneCfg,
+    LumaPlay,
     TenokeUserStats,
     GenericIni,
     Razor1911,
     SmartSteamEmu,
     SteamStats,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalText {
+    pub api_name: String,
+    pub display_name: String,
+    pub description: String,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -56,6 +69,9 @@ pub fn parse_file(format: Format, path: &Path, bytes: &[u8]) -> Result<Vec<Unloc
 pub fn parse(format: Format, bytes: &[u8]) -> Result<Vec<Unlock>, ParseError> {
     match format {
         Format::SmartSteamEmu => return smartsteam::parse_smartsteam(bytes),
+        Format::RuneCfg if bytes.len() > rune::MAX_BYTES => {
+            return Err(ParseError::Invalid("file is larger than 2 MB".into()));
+        }
         Format::SteamStats => {
             return Err(ParseError::Invalid(
                 "steam stats need their schema file".into(),
@@ -76,8 +92,18 @@ pub fn parse(format: Format, bytes: &[u8]) -> Result<Vec<Unlock>, ParseError> {
         Format::CreamApi => Ok(creamapi::parse_creamapi(&text)),
         Format::TenokeUserStats => Ok(tenoke::parse_tenoke(&text)),
         Format::GenericIni => Ok(generic_ini::parse_generic_ini(&text)),
+        Format::GenericJson => generic_json::parse_generic_json(&text),
+        Format::RuneCfg => rune::parse_rune(&text),
+        Format::LumaPlay => Ok(lumaplay::parse_lumaplay(&text)),
         Format::Razor1911 => Ok(razor::parse_razor(&text)),
         Format::SmartSteamEmu | Format::SteamStats => Ok(Vec::new()),
+    }
+}
+
+pub fn local_texts(format: Format, bytes: &[u8]) -> Vec<LocalText> {
+    match format {
+        Format::GenericJson => generic_json::texts(&text::decode(bytes)),
+        _ => Vec::new(),
     }
 }
 
@@ -87,6 +113,13 @@ pub(crate) fn unlock_time(raw: &str) -> Option<i64> {
 
 pub(crate) fn epoch_time(raw: i64) -> Option<i64> {
     (raw > 0).then(|| normalize_epoch(raw))
+}
+
+pub(crate) fn truthy(raw: &str) -> bool {
+    let raw = raw.trim();
+    ["1", "true", "yes", "on"]
+        .iter()
+        .any(|word| raw.eq_ignore_ascii_case(word))
 }
 
 #[cfg(test)]
@@ -135,5 +168,15 @@ mod tests {
     fn unlock_time_normalizes_to_seconds() {
         assert_eq!(unlock_time(" 1761321600 "), Some(1_761_321_600));
         assert_eq!(unlock_time("1761321600000"), Some(1_761_321_600));
+    }
+
+    #[test]
+    fn truthy_accepts_ini_and_json_spellings() {
+        for value in ["1", "true", "TRUE", " yes ", "On"] {
+            assert!(truthy(value), "{value}");
+        }
+        for value in ["0", "false", "no", "off", "", "2"] {
+            assert!(!truthy(value), "{value}");
+        }
     }
 }

@@ -4,6 +4,7 @@ pub mod folders;
 pub mod gamedirs;
 pub mod gamediscovery;
 pub mod gamefolder;
+pub mod lumaplay;
 pub mod markers;
 pub mod running;
 pub mod sources;
@@ -16,6 +17,7 @@ use std::path::{Path, PathBuf};
 use crate::discovery::folders::KnownFolders;
 use crate::discovery::sources::SourceDef;
 use crate::parsers::Format;
+use crate::platform::{ExternalId, Platform, valid_external_id};
 
 const APPID_SEGMENT: &str = "{appid}";
 const WILDCARD_SEGMENT: &str = "*";
@@ -24,8 +26,42 @@ const WILDCARD_SEGMENT: &str = "*";
 pub struct Found {
     pub source_id: &'static str,
     pub app_id: u32,
+    pub external: Option<ExternalId>,
     pub path: PathBuf,
     pub format: Format,
+}
+
+impl Found {
+    pub fn steam(source_id: &'static str, app_id: u32, path: PathBuf, format: Format) -> Found {
+        Found {
+            source_id,
+            app_id,
+            external: None,
+            path,
+            format,
+        }
+    }
+
+    pub fn external(
+        source_id: &'static str,
+        external: ExternalId,
+        path: PathBuf,
+        format: Format,
+    ) -> Found {
+        Found {
+            source_id,
+            app_id: 0,
+            external: Some(external),
+            path,
+            format,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum GameKey {
+    Steam(u32),
+    External(String),
 }
 
 pub fn discover(sources: &[SourceDef], folders: &KnownFolders) -> Vec<Found> {
@@ -40,13 +76,21 @@ pub fn discover(sources: &[SourceDef], folders: &KnownFolders) -> Vec<Found> {
             .split('/')
             .fold(base.to_path_buf(), |dir, segment| dir.join(segment));
         for pattern in source.patterns {
-            for (app_id, path) in match_pattern(&root, pattern) {
+            for (key, path) in match_pattern(&root, pattern, source.platform) {
                 if seen.insert(path.clone()) {
-                    found.push(Found {
-                        source_id: source.id,
-                        app_id,
-                        path,
-                        format: source.format,
+                    found.push(match key {
+                        GameKey::Steam(app_id) => {
+                            Found::steam(source.id, app_id, path, source.format)
+                        }
+                        GameKey::External(id) => Found::external(
+                            source.id,
+                            ExternalId {
+                                platform: source.platform,
+                                id,
+                            },
+                            path,
+                            source.format,
+                        ),
                     });
                 }
             }
@@ -56,7 +100,7 @@ pub fn discover(sources: &[SourceDef], folders: &KnownFolders) -> Vec<Found> {
     found
 }
 
-fn match_pattern(root: &Path, pattern: &str) -> Vec<(u32, PathBuf)> {
+fn match_pattern(root: &Path, pattern: &str, platform: Platform) -> Vec<(GameKey, PathBuf)> {
     let segments: Vec<&str> = pattern.split('/').collect();
     let Some((file_name, dir_segments)) = segments.split_last() else {
         return Vec::new();
@@ -65,16 +109,16 @@ fn match_pattern(root: &Path, pattern: &str) -> Vec<(u32, PathBuf)> {
     for segment in dir_segments {
         frontier = frontier
             .into_iter()
-            .flat_map(|(dir, app_id)| matching_subdirs(&dir, segment, app_id))
+            .flat_map(|(dir, key)| matching_subdirs(&dir, segment, key, platform))
             .collect();
     }
     frontier
         .into_iter()
-        .filter_map(|(dir, app_id)| Some((dir, app_id?)))
-        .flat_map(|(dir, app_id)| {
+        .filter_map(|(dir, key)| Some((dir, key?)))
+        .flat_map(|(dir, key)| {
             matching_files(&dir, file_name)
                 .into_iter()
-                .map(move |path| (app_id, path))
+                .map(move |path| (key.clone(), path))
         })
         .collect()
 }
@@ -87,20 +131,37 @@ fn entries(dir: &Path) -> impl Iterator<Item = (OsString, PathBuf)> {
         .map(|entry| (entry.file_name(), entry.path()))
 }
 
-fn matching_subdirs(dir: &Path, segment: &str, app_id: Option<u32>) -> Vec<(PathBuf, Option<u32>)> {
+fn matching_subdirs(
+    dir: &Path,
+    segment: &str,
+    key: Option<GameKey>,
+    platform: Platform,
+) -> Vec<(PathBuf, Option<GameKey>)> {
     entries(dir)
         .filter(|(_, path)| path.is_dir())
         .filter_map(|(name, path)| match segment {
             APPID_SEGMENT => {
-                let digits = parse_app_id(&name)?;
-                app_id
-                    .is_none_or(|expected| expected == digits)
-                    .then_some((path, Some(digits)))
+                let here = game_key(&name, platform)?;
+                key.as_ref()
+                    .is_none_or(|expected| *expected == here)
+                    .then_some((path, Some(here)))
             }
-            WILDCARD_SEGMENT => Some((path, app_id)),
-            literal => name.eq_ignore_ascii_case(literal).then_some((path, app_id)),
+            WILDCARD_SEGMENT => Some((path, key.clone())),
+            literal => name
+                .eq_ignore_ascii_case(literal)
+                .then(|| (path, key.clone())),
         })
         .collect()
+}
+
+fn game_key(name: &OsStr, platform: Platform) -> Option<GameKey> {
+    match platform {
+        Platform::Steam => parse_app_id(name).map(GameKey::Steam),
+        _ => name
+            .to_str()
+            .filter(|name| valid_external_id(name))
+            .map(|name| GameKey::External(name.to_owned())),
+    }
 }
 
 fn matching_files(dir: &Path, file_name: &str) -> Vec<PathBuf> {
@@ -123,11 +184,13 @@ mod tests {
     use super::*;
     use crate::discovery::folders::Base;
     use crate::discovery::sources::{SourceDef, builtin_sources};
+    use crate::platform::Platform;
     use std::path::{Path, PathBuf};
 
     static WILDCARD_SOURCES: [SourceDef; 1] = [SourceDef {
         id: "wild",
         name: "Wild",
+        platform: Platform::Steam,
         base: Base::ProgramData,
         root: "Steam",
         patterns: &["*/{appid}/stats/achievements.ini"],
@@ -258,6 +321,7 @@ mod tests {
             vec![Found {
                 source_id: "onlinefix",
                 app_id: 1245620,
+                external: None,
                 path: hit,
                 format: Format::OnlineFix
             }]
@@ -341,6 +405,7 @@ mod tests {
         let sources = [SourceDef {
             id: "emu",
             name: "Emu",
+            platform: Platform::Steam,
             base: Base::PublicDocuments,
             root: "Emu",
             patterns: &["{appid}/achievements.ini", "{appid}/ACHIEVEMENTS.INI"],
@@ -352,9 +417,120 @@ mod tests {
             vec![Found {
                 source_id: "emu",
                 app_id: 42,
+                external: None,
                 path: hit,
                 format: Format::CodexIni
             }]
         );
+    }
+
+    type Key = (&'static str, u32, Option<(Platform, String)>);
+
+    fn keys(found: &[Found]) -> Vec<Key> {
+        found
+            .iter()
+            .map(|f| {
+                (
+                    f.source_id,
+                    f.app_id,
+                    f.external.as_ref().map(|e| (e.platform, e.id.clone())),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn finds_m7_sources() {
+        let tmp = tempfile::tempdir().unwrap();
+        touch(
+            tmp.path(),
+            "Documents/RUNE/Ubisoft Connect/achievements/Player/4/achievements.cfg",
+        );
+        touch(
+            tmp.path(),
+            "PublicDocuments/RUNE/Ubisoft Connect/achievements/Player/54/achievements.cfg",
+        );
+        touch(
+            tmp.path(),
+            "RoamingAppData/Goldberg UplayEmu Saves/635/achievements.json",
+        );
+        touch(
+            tmp.path(),
+            "RoamingAppData/R1 UplayEmu Saves/40/achievements.ini",
+        );
+        touch(
+            tmp.path(),
+            "LocalAppData/anadius/LSX emu/achievement_watcher/1238840/achievements.ini",
+        );
+        touch(
+            tmp.path(),
+            "RoamingAppData/NemirtingasEpicEmu/Player/9d2d0eb64d5c44529cece33fe2a46482/achievements.json",
+        );
+        touch(
+            tmp.path(),
+            "RoamingAppData/NemirtingasGalaxyEmu/Player/1207658924/achievements.json",
+        );
+        touch(
+            tmp.path(),
+            "LocalAppData/UniverseLAN/1495134320/UniverseLANData/Achievements.ini",
+        );
+        let found = discover(builtin_sources(), &KnownFolders::under(tmp.path()));
+        let mut got = keys(&found);
+        got.sort_by(|a, b| a.0.cmp(b.0));
+        let ext = |platform: Platform, id: &str| Some((platform, id.to_owned()));
+        assert_eq!(
+            got,
+            vec![
+                ("anadius", 1238840, None),
+                ("goldberg_uplay_json", 0, ext(Platform::Ubisoft, "635")),
+                (
+                    "nemirtingas_epic",
+                    0,
+                    ext(Platform::Epic, "9d2d0eb64d5c44529cece33fe2a46482")
+                ),
+                ("nemirtingas_galaxy", 0, ext(Platform::Gog, "1207658924")),
+                ("r1_uplay_ini", 0, ext(Platform::Ubisoft, "40")),
+                ("rune_uplay_documents", 0, ext(Platform::Ubisoft, "4")),
+                ("rune_uplay_public", 0, ext(Platform::Ubisoft, "54")),
+                ("universelan", 0, ext(Platform::Gog, "1495134320")),
+            ]
+        );
+        let formats: Vec<(&str, Format)> = found.iter().map(|f| (f.source_id, f.format)).collect();
+        assert!(formats.contains(&("rune_uplay_documents", Format::RuneCfg)));
+        assert!(formats.contains(&("goldberg_uplay_json", Format::GenericJson)));
+        assert!(formats.contains(&("r1_uplay_ini", Format::GenericIni)));
+        assert!(formats.contains(&("anadius", Format::CodexIni)));
+        assert!(formats.contains(&("universelan", Format::GenericIni)));
+    }
+
+    #[test]
+    fn rejects_invalid_external_ids() {
+        let tmp = tempfile::tempdir().unwrap();
+        let long = "a".repeat(65);
+        for id in ["invalidappid", "0000", "a b", long.as_str()] {
+            touch(
+                tmp.path(),
+                &format!("RoamingAppData/NemirtingasEpicEmu/Player/{id}/achievements.json"),
+            );
+        }
+        assert!(discover(builtin_sources(), &KnownFolders::under(tmp.path())).is_empty());
+    }
+
+    #[test]
+    fn external_segment_keeps_case() {
+        let tmp = tempfile::tempdir().unwrap();
+        touch(
+            tmp.path(),
+            "RoamingAppData/NemirtingasEpicEmu/Player/Carnation/achievements.json",
+        );
+        let found = discover(builtin_sources(), &KnownFolders::under(tmp.path()));
+        assert_eq!(found[0].external.as_ref().unwrap().id, "Carnation");
+    }
+
+    #[test]
+    fn steam_found_constructor_has_no_external_id() {
+        let f = Found::steam("goldberg", 480, PathBuf::from("x"), Format::GoldbergJson);
+        assert_eq!(f.external, None);
+        assert_eq!(f.app_id, 480);
     }
 }

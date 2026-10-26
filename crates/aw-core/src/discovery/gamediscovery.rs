@@ -67,6 +67,7 @@ fn discover_game(game: &GameDir, folders: &KnownFolders, result: &mut GameDiscov
             Some(app_id) => result.found.push(Found {
                 source_id: "tenoke",
                 app_id,
+                external: None,
                 path: stats,
                 format: Format::TenokeUserStats,
             }),
@@ -141,6 +142,7 @@ fn goldberg_saves(root: &Path, source_id: &'static str) -> Vec<Found> {
             file.is_file().then_some(Found {
                 source_id,
                 app_id,
+                external: None,
                 path: file,
                 format: Format::GoldbergJson,
             })
@@ -201,6 +203,7 @@ mod tests {
             vec![Found {
                 source_id: "tenoke",
                 app_id: 1245620,
+                external: None,
                 path: stats,
                 format: Format::TenokeUserStats
             }]
@@ -263,6 +266,7 @@ mod tests {
             vec![Found {
                 source_id: "gse_local",
                 app_id: 480,
+                external: None,
                 path: save,
                 format: Format::GoldbergJson
             }]
@@ -289,6 +293,7 @@ mod tests {
             vec![Found {
                 source_id: "gse_custom",
                 app_id: 570,
+                external: None,
                 path: save,
                 format: Format::GoldbergJson
             }]
@@ -307,6 +312,7 @@ mod tests {
             vec![Found {
                 source_id: "gse_settings",
                 app_id: 480,
+                external: None,
                 path: save,
                 format: Format::GoldbergJson
             }]

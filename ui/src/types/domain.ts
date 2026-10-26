@@ -172,6 +172,19 @@ export interface Unresolved {
   reason: string;
 }
 
+export interface ExternalId {
+  platform: string;
+  id: string;
+}
+
+export interface ExternalGame {
+  platform: string;
+  external_id: string;
+  app_id: number;
+  title: string | null;
+  resolved_at: number;
+}
+
 export interface Diagnostics {
   version: string;
   dataDir: string;
@@ -180,6 +193,8 @@ export interface Diagnostics {
   sources: SourceRow[];
   watched: string[];
   unresolved: Unresolved[];
+  pending: ExternalId[];
+  external: ExternalGame[];
   files: FileReport[];
   logTail: string[];
 }

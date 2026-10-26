@@ -3,10 +3,11 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
+use crate::platform::is_synthetic;
 use crate::store::{SchemaRow, Store, StoreError};
 
 pub const CACHE_TTL_SECS: i64 = 30 * 24 * 60 * 60;
-const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
+pub(crate) const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, thiserror::Error)]
 pub enum MetaError {
@@ -132,14 +133,14 @@ pub fn parse_appdetails_header(text: &str, app_id: u32) -> Option<String> {
     appdetails_field(text, app_id, "header_image")
 }
 
-fn http_error(error: ureq::Error) -> MetaError {
+pub(crate) fn http_error(error: ureq::Error) -> MetaError {
     match error {
         ureq::Error::StatusCode(code) => MetaError::Status(code),
         other => MetaError::Network(other.to_string()),
     }
 }
 
-fn agent(timeout: Duration) -> ureq::Agent {
+pub(crate) fn agent(timeout: Duration) -> ureq::Agent {
     ureq::Agent::config_builder()
         .timeout_global(Some(timeout))
         .user_agent("AchievementWatcher/0.1")
@@ -208,6 +209,9 @@ impl SteamMeta {
     }
 
     pub fn ensure(&self, store: &Store, app_id: u32, now: i64) -> Result<Ensured, MetaError> {
+        if is_synthetic(app_id) {
+            return Ok(Ensured::Fresh);
+        }
         let cached = store.schema_info(app_id)?;
         if let Some((lang, fetched_at)) = &cached
             && *lang == self.lang
@@ -256,6 +260,9 @@ impl SteamMeta {
     }
 
     pub fn ensure_icon(&self, app_id: u32, file: &str) -> bool {
+        if is_synthetic(app_id) {
+            return false;
+        }
         let target = self.icon_path(app_id, file);
         if target.is_file() {
             return true;
@@ -274,6 +281,9 @@ impl SteamMeta {
     }
 
     pub fn ensure_icons(&self, store: &Store, app_id: u32) -> Result<(), MetaError> {
+        if is_synthetic(app_id) {
+            return Ok(());
+        }
         let mut files: Vec<String> = store
             .schema_icons(app_id)?
             .into_iter()
@@ -559,5 +569,24 @@ icon"
         let tmp = tempfile::tempdir().unwrap();
         let store = Store::in_memory().unwrap();
         assert!(offline(tmp.path()).ensure(&store, 7, 200).is_err());
+    }
+
+    #[test]
+    fn synthetic_ids_never_reach_steam() {
+        let cache = tempfile::tempdir().unwrap();
+        let closed = Endpoints {
+            api: "http://127.0.0.1:9".into(),
+            store: "http://127.0.0.1:9".into(),
+            cdn: "http://127.0.0.1:9".into(),
+            community: "http://127.0.0.1:9".into(),
+            assets: "http://127.0.0.1:9".into(),
+        };
+        let meta = SteamMeta::with_endpoints(cache.path().to_path_buf(), "english", closed);
+        let store = Store::in_memory().unwrap();
+        let synthetic = crate::platform::SYNTHETIC_BASE + 5;
+        assert_eq!(meta.ensure(&store, synthetic, 1).unwrap(), Ensured::Fresh);
+        assert!(!meta.ensure_icon(synthetic, "a.jpg"));
+        meta.ensure_icons(&store, synthetic).unwrap();
+        assert_eq!(store.schema_info(synthetic).unwrap(), None);
     }
 }

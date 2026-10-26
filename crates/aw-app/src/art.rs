@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use aw_core::metadata::{MetaError, SteamMeta};
+use aw_core::platform::{GameImages, is_synthetic};
 use serde::{Deserialize, Serialize};
 
 use crate::popup::PROTOCOL_ORIGIN;
@@ -15,6 +16,12 @@ pub enum ArtKind {
 }
 
 const FETCHED: [ArtKind; 3] = [ArtKind::Header, ArtKind::Hero, ArtKind::Logo];
+const EXTERNAL: [ArtKind; 4] = [
+    ArtKind::Header,
+    ArtKind::Hero,
+    ArtKind::Logo,
+    ArtKind::Capsule,
+];
 
 impl ArtKind {
     pub fn name(self) -> &'static str {
@@ -154,12 +161,54 @@ fn fetch_one(
 }
 
 pub fn fetch_art(meta: &SteamMeta, steam: Option<&Path>, cache_dir: &Path, app_id: u32) -> bool {
+    if is_synthetic(app_id) {
+        return false;
+    }
+    fetch_kinds(steam, cache_dir, app_id, &FETCHED, |kind| {
+        fetch_one(meta, cache_dir, app_id, kind)
+    })
+}
+
+pub fn fetch_external_art(
+    meta: &SteamMeta,
+    cache_dir: &Path,
+    app_id: u32,
+    images: &GameImages,
+) -> bool {
+    fetch_kinds(None, cache_dir, app_id, &EXTERNAL, |kind| {
+        let Some(url) = external_url(images, kind) else {
+            return Ok(false);
+        };
+        match meta.download(url, &art_dir(cache_dir, app_id).join(kind.file_name())) {
+            Ok(()) => Ok(true),
+            Err(MetaError::Status(404)) => Ok(false),
+            Err(error) => Err(error),
+        }
+    })
+}
+
+fn external_url(images: &GameImages, kind: ArtKind) -> Option<&str> {
+    match kind {
+        ArtKind::Header => images.header.as_deref(),
+        ArtKind::Hero => images.hero.as_deref(),
+        ArtKind::Logo => images.logo.as_deref(),
+        ArtKind::Capsule => images.capsule.as_deref(),
+    }
+}
+
+fn fetch_kinds(
+    steam: Option<&Path>,
+    cache_dir: &Path,
+    app_id: u32,
+    kinds: &[ArtKind],
+    fetch: impl Fn(ArtKind) -> Result<bool, MetaError>,
+) -> bool {
     let mut fetched = false;
-    for kind in FETCHED {
+    for &kind in kinds {
         if !wanted(steam, cache_dir, app_id, kind) {
             continue;
         }
-        match fetch_one(meta, cache_dir, app_id, kind) {
+        match fetch(kind) {
             Ok(true) => fetched = true,
             Ok(false) => {
                 let path = marker(cache_dir, app_id, kind);
@@ -381,5 +430,67 @@ mod tests {
         }
         assert_eq!(ArtKind::Capsule.file_name(), "library_600x900.jpg");
         assert_eq!(ArtKind::from_name("banner"), None);
+    }
+
+    fn ok_server() -> (String, Arc<AtomicUsize>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let hits = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&hits);
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { continue };
+                let mut buf = [0u8; 2048];
+                let _ = stream.read(&mut buf);
+                counter.fetch_add(1, Ordering::SeqCst);
+                let _ = stream.write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nContent-Length: 3\r\nConnection: close\r\n\r\nimg",
+                );
+            }
+        });
+        (format!("http://{addr}"), hits)
+    }
+
+    #[test]
+    fn synthetic_ids_skip_steam_art() {
+        let (base, hits) = not_found_server();
+        let cache = tempfile::tempdir().unwrap();
+        let meta =
+            SteamMeta::with_endpoints(cache.path().to_path_buf(), "english", endpoints(&base));
+        assert!(!fetch_art(&meta, None, cache.path(), 0x8000_0001));
+        assert_eq!(hits.load(Ordering::SeqCst), 0);
+        assert!(!cache.path().join("art").join("2147483649").exists());
+    }
+
+    #[test]
+    fn external_art_downloads_mapped_files() {
+        let (base, hits) = ok_server();
+        let cache = tempfile::tempdir().unwrap();
+        let meta = SteamMeta::new(cache.path().to_path_buf(), "english");
+        let images = aw_core::platform::GameImages {
+            header: Some(format!("{base}/h.jpg")),
+            hero: Some(format!("{base}/b.jpg")),
+            logo: None,
+            capsule: Some(format!("{base}/c.jpg")),
+        };
+        assert!(fetch_external_art(
+            &meta,
+            cache.path(),
+            0x8000_0001,
+            &images
+        ));
+        let dir = cache.path().join("art").join("2147483649");
+        assert!(dir.join("header.jpg").is_file());
+        assert!(dir.join("library_hero.jpg").is_file());
+        assert!(dir.join("library_600x900.jpg").is_file());
+        assert!(dir.join(".missing-logo").is_file());
+        assert_eq!(hits.load(Ordering::SeqCst), 3);
+        assert!(!fetch_external_art(
+            &meta,
+            cache.path(),
+            0x8000_0001,
+            &images
+        ));
+        assert_eq!(hits.load(Ordering::SeqCst), 3);
     }
 }

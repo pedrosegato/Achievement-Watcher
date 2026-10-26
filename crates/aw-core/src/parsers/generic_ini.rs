@@ -1,4 +1,4 @@
-use super::unlock_time;
+use super::{truthy, unlock_time};
 use crate::model::{Progress, Unlock};
 use crate::parsers::ini::{Ini, Section};
 
@@ -9,13 +9,22 @@ const SKIPPED_SECTIONS: [&str; 5] = [
     "Settings",
     "GameSettings",
 ];
-const UNLOCK_KEYS: [&str; 5] = ["Achieved", "Unlocked", "HaveAchieved", "earned", "State"];
-const TIME_KEYS: [&str; 6] = [
+const UNLOCK_KEYS: [&str; 6] = [
+    "Achieved",
+    "Unlocked",
+    "HaveAchieved",
+    "earned",
+    "Unlock",
+    "State",
+];
+const TIME_KEYS: [&str; 8] = [
     "UnlockTime",
     "unlock_time",
+    "UnlockedTime",
     "HaveAchievedTime",
     "HaveHaveAchievedTime",
     "earned_time",
+    "timestamp",
     "Time",
 ];
 
@@ -47,10 +56,7 @@ fn read_section(section: &Section) -> Option<Unlock> {
     if flag.is_none() && time.is_none() && max.is_none() {
         return None;
     }
-    let flagged = flag.is_some_and(|v| {
-        let v = v.trim();
-        v == "1" || v.eq_ignore_ascii_case("true")
-    });
+    let flagged = flag.is_some_and(truthy);
     let completed = matches!((current, max), (Some(c), Some(m)) if m > 0 && c >= m);
     let mut unlock = Unlock::new(
         section.name.clone(),
@@ -113,5 +119,59 @@ mod tests {
     #[test]
     fn unrelated_sections_are_ignored() {
         assert!(parse_generic_ini("[Other]\nfoo=bar\n").is_empty());
+    }
+
+    #[test]
+    fn accepts_yes_and_on() {
+        let u = parse_generic_ini(
+            "[A]
+Achieved=yes
+[B]
+Unlocked=ON
+[C]
+Achieved=no
+",
+        );
+        assert_eq!(
+            u,
+            vec![
+                Unlock::new("A", true, None),
+                Unlock::new("B", true, None),
+                Unlock::new("C", false, None)
+            ]
+        );
+    }
+
+    #[test]
+    fn reads_pserban_keys() {
+        let u = parse_generic_ini(
+            "[A]
+Earned=1
+UnlockedTime=1700000000
+[B]
+Unlock=true
+timestamp=1700000001
+",
+        );
+        assert_eq!(
+            u,
+            vec![
+                Unlock::new("A", true, Some(1_700_000_000)),
+                Unlock::new("B", true, Some(1_700_000_001))
+            ]
+        );
+    }
+
+    #[test]
+    fn time_unlocks_even_with_false_flag() {
+        assert_eq!(
+            parse_generic_ini(
+                "[A]
+Unlocked=false
+UnlockTime=1700000000
+"
+            ),
+            vec![Unlock::new("A", true, Some(1_700_000_000))]
+        );
     }
 }

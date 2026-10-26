@@ -1,0 +1,60 @@
+{
+  "title": {
+    "*": "The Witcher: Enhanced Edition",
+    "en-US": "The Witcher: Enhanced Edition"
+  },
+  "external_id": "1207658924",
+  "platform_id": "gog",
+  "game": {
+    "title": {
+      "*": "The Witcher: Enhanced Edition",
+      "en-US": "The Witcher: Enhanced Edition"
+    },
+    "releases": [
+      {
+        "platform_id": "gog",
+        "external_id": "1207658924"
+      },
+      {
+        "platform_id": "origin",
+        "external_id": "OFB-EAST:51990"
+      },
+      {
+        "platform_id": "origin",
+        "external_id": "e0c36ab831c7878e1ca412dad1bbefb00e6f33fe370316ced6a941700f201a3e"
+      },
+      {
+        "platform_id": "origin",
+        "external_id": "2f3b1a40d5bf92ebd4ff9acda5f27f15989405ea"
+      },
+      {
+        "platform_id": "test",
+        "external_id": "20900"
+      },
+      {
+        "platform_id": "test",
+        "external_id": "the-witcher-enhanced-edition"
+      },
+      {
+        "platform_id": "playfire",
+        "external_id": "the-witcher-enhanced-edition"
+      },
+      {
+        "platform_id": "test",
+        "external_id": "gfn_20900"
+      }
+    ],
+    "background": {
+      "url_format": "https://images.gog.com/fc1c44b2252e3200db66872630f7e21687bba217b6eabb188451556b5941cf63{formatter}.{ext}?namespace=gamesdb"
+    },
+    "logo": {
+      "url_format": "https://images.gog.com/3a4d9190f3c0a0a8d63638193ef8c9af2ba58eb0b250295db2a28bccf852a76d{formatter}.{ext}?namespace=gamesdb"
+    },
+    "vertical_cover": {
+      "url_format": "https://images.gog.com/7fbb815727527616881cb45a56f51a19e90ddf21ba00c9e22b4852d9bec6324a{formatter}.{ext}?namespace=gamesdb"
+    },
+    "horizontal_artwork": {
+      "url_format": "https://images.gog.com/fc1c44b2252e3200db66872630f7e21687bba217b6eabb188451556b5941cf63{formatter}.{ext}?namespace=gamesdb"
+    }
+  }
+}

@@ -2,6 +2,7 @@ import { useDeferredValue, useReducer, useRef, useState } from "react";
 import { ArtImage } from "../../../components/ArtImage";
 import { Icon } from "../../../components/Icon";
 import { Segmented } from "../../../components/Segmented";
+import { Button } from "../../../components/ui/button";
 import {
   Dialog,
   DialogClose,
@@ -11,6 +12,7 @@ import {
 } from "../../../components/ui/dialog";
 import { useI18n } from "../../../i18n/useI18n";
 import { completionPercent } from "../../../lib/achievements";
+import { api, errorMessage } from "../../../lib/commands";
 import { useAppSettings } from "../../../settings/useAppSettings";
 import type { AchievementFilter, GameDetail } from "../../../types/domain";
 import { AchievementList } from "./AchievementList";
@@ -39,6 +41,7 @@ export function AchievementsDialog({
   const [query, setQuery] = useState("");
   const listQuery = useDeferredValue(query);
   const [revealed, dispatch] = useReducer(hiddenReducer, NONE);
+  const [report, setReport] = useState<string | null>(null);
   const search = useRef<HTMLInputElement>(null);
 
   const pct = completionPercent(detail.unlocked, detail.total);
@@ -47,11 +50,22 @@ export function AchievementsDialog({
     if (!next) {
       dispatch({ type: "reset" });
       setQuery("");
+      setReport(null);
     }
     onOpenChange(next);
   };
 
   const options = filterOptions(detail.achievements, t);
+
+  const exportReport = () => {
+    api
+      .exportGameReport(detail.appId)
+      .then((path) => {
+        setReport(t("dialog.reportSaved", { path }));
+        api.openPath(path).catch(() => undefined);
+      })
+      .catch((reason: unknown) => setReport(errorMessage(reason)));
+  };
 
   return (
     <Dialog open={open} onOpenChange={change}>
@@ -117,6 +131,18 @@ export function AchievementsDialog({
             dispatch={dispatch}
           />
         </div>
+        <footer className="flex shrink-0 items-center gap-3 border-line border-t px-[22px] py-2.5">
+          <p
+            className="mr-auto min-w-0 truncate text-[12.5px] text-dim"
+            title={report ?? undefined}
+          >
+            {report}
+          </p>
+          <Button size="sm" variant="ghost" onClick={exportReport}>
+            <Icon name="info" size={16} />
+            {t("dialog.reportMissing")}
+          </Button>
+        </footer>
       </DialogContent>
     </Dialog>
   );

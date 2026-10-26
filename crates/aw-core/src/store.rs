@@ -1,7 +1,10 @@
 use std::path::Path;
 
-use rusqlite::{Connection, OptionalExtension, Transaction, params};
+use rusqlite::{Connection, OptionalExtension, Row, Transaction, params};
 use serde::Serialize;
+
+use crate::parsers::LocalText;
+use crate::platform::{ExternalId, GameImages, Platform, next_synthetic, synthetic_id};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -56,6 +59,16 @@ pub struct FileReport {
     pub last_ok_at: Option<i64>,
     pub last_error: Option<String>,
     pub last_count: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ExternalGame {
+    pub platform: Platform,
+    pub external_id: String,
+    pub app_id: u32,
+    pub title: Option<String>,
+    pub images: GameImages,
+    pub resolved_at: i64,
 }
 
 pub struct Store {
@@ -119,7 +132,18 @@ CREATE TABLE IF NOT EXISTS steam_playtime (
     app_id INTEGER PRIMARY KEY,
     minutes INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS external_games (
+    platform TEXT NOT NULL,
+    external_id TEXT NOT NULL COLLATE NOCASE,
+    app_id INTEGER NOT NULL,
+    title TEXT,
+    images TEXT,
+    resolved_at INTEGER NOT NULL,
+    PRIMARY KEY (platform, external_id)
+);
 ";
+
+const LOCAL_SCHEMA_LANG: &str = "local";
 
 impl Store {
     pub fn open(path: &Path) -> StoreResult<Store> {
@@ -358,18 +382,17 @@ impl Store {
         rows: &[SchemaRow],
         now: i64,
     ) -> StoreResult<()> {
-        let tx = self.begin()?;
-        tx.execute(
-            "INSERT INTO games (app_id, name, schema_lang, schema_fetched_at) VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT(app_id) DO UPDATE SET name = COALESCE(?2, name), schema_lang = ?3, schema_fetched_at = ?4",
-            params![app_id, name, lang, now],
-        )?;
-        tx.execute(
-            "DELETE FROM achievement_schema WHERE app_id = ?1",
-            params![app_id],
-        )?;
-        {
-            let mut insert = tx.prepare(
+        self.atomic(|conn| {
+            conn.execute(
+                "INSERT INTO games (app_id, name, schema_lang, schema_fetched_at) VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(app_id) DO UPDATE SET name = COALESCE(?2, name), schema_lang = ?3, schema_fetched_at = ?4",
+                params![app_id, name, lang, now],
+            )?;
+            conn.execute(
+                "DELETE FROM achievement_schema WHERE app_id = ?1",
+                params![app_id],
+            )?;
+            let mut insert = conn.prepare(
                 "INSERT OR REPLACE INTO achievement_schema
                  (app_id, api_name, display_name, description, icon, icon_gray, hidden, percent)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
@@ -386,9 +409,158 @@ impl Store {
                     row.percent
                 ])?;
             }
+            Ok(())
+        })
+    }
+
+    fn atomic<T>(&self, work: impl FnOnce(&Connection) -> StoreResult<T>) -> StoreResult<T> {
+        if !self.conn.is_autocommit() {
+            return work(&self.conn);
         }
+        let tx = self.begin()?;
+        let value = work(&tx)?;
         tx.commit()?;
-        Ok(())
+        Ok(value)
+    }
+
+    pub fn external_app_id(&self, key: &ExternalId) -> StoreResult<Option<u32>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT app_id FROM external_games WHERE platform = ?1 AND external_id = ?2",
+                params![key.platform.as_str(), key.id],
+                |row| row.get(0),
+            )
+            .optional()?)
+    }
+
+    pub fn save_external_game(
+        &self,
+        key: &ExternalId,
+        steam_app_id: Option<u32>,
+        title: Option<&str>,
+        images: &GameImages,
+        now: i64,
+    ) -> StoreResult<u32> {
+        let app_id = match steam_app_id {
+            Some(app_id) => app_id,
+            None => self.free_synthetic(key)?,
+        };
+        let images = serde_json::to_string(images).unwrap_or_default();
+        self.atomic(|conn| {
+            conn.execute(
+                "INSERT OR REPLACE INTO external_games (platform, external_id, app_id, title, images, resolved_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![key.platform.as_str(), key.id, app_id, title, images, now],
+            )?;
+            conn.execute(
+                "INSERT INTO games (app_id, name) VALUES (?1, ?2)
+                 ON CONFLICT(app_id) DO UPDATE SET name = COALESCE(games.name, ?2)",
+                params![app_id, title],
+            )?;
+            Ok(app_id)
+        })
+    }
+
+    fn free_synthetic(&self, key: &ExternalId) -> StoreResult<u32> {
+        let mut app_id = synthetic_id(key);
+        loop {
+            let owner: Option<(String, String)> = self
+                .conn
+                .query_row(
+                    "SELECT platform, external_id FROM external_games WHERE app_id = ?1",
+                    params![app_id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()?;
+            match owner {
+                Some((platform, id))
+                    if platform != key.platform.as_str() || !id.eq_ignore_ascii_case(&key.id) =>
+                {
+                    app_id = next_synthetic(app_id);
+                }
+                _ => return Ok(app_id),
+            }
+        }
+    }
+
+    pub fn external_game(&self, app_id: u32) -> StoreResult<Option<ExternalGame>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT platform, external_id, app_id, title, images, resolved_at
+                 FROM external_games WHERE app_id = ?1 ORDER BY platform, external_id LIMIT 1",
+                params![app_id],
+                external_row,
+            )
+            .optional()?
+            .flatten())
+    }
+
+    pub fn external_games(&self) -> StoreResult<Vec<ExternalGame>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT platform, external_id, app_id, title, images, resolved_at
+             FROM external_games ORDER BY platform, external_id",
+        )?;
+        let rows = stmt.query_map([], external_row)?;
+        Ok(rows
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
+            .collect())
+    }
+
+    pub fn replace_local_schema(
+        &self,
+        app_id: u32,
+        texts: &[LocalText],
+        now: i64,
+    ) -> StoreResult<bool> {
+        if self
+            .schema_info(app_id)?
+            .is_some_and(|(lang, _)| lang != LOCAL_SCHEMA_LANG)
+        {
+            return Ok(false);
+        }
+        let mut current: Vec<(String, String, String)> = {
+            let mut stmt = self.conn.prepare(
+                "SELECT api_name, display_name, description FROM achievement_schema WHERE app_id = ?1",
+            )?;
+            let rows = stmt.query_map(params![app_id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })?;
+            rows.collect::<Result<_, _>>()?
+        };
+        let mut wanted: Vec<(String, String, String)> = texts
+            .iter()
+            .map(|t| {
+                (
+                    t.api_name.clone(),
+                    t.display_name.clone(),
+                    t.description.clone(),
+                )
+            })
+            .collect();
+        current.sort();
+        wanted.sort();
+        wanted.dedup_by(|a, b| a.0.eq_ignore_ascii_case(&b.0));
+        if current == wanted && self.schema_info(app_id)?.is_some() {
+            return Ok(false);
+        }
+        let rows: Vec<SchemaRow> = wanted
+            .into_iter()
+            .map(|(api_name, display_name, description)| SchemaRow {
+                api_name,
+                display_name,
+                description,
+                icon: None,
+                icon_gray: None,
+                hidden: false,
+                percent: None,
+            })
+            .collect();
+        self.replace_schema(app_id, LOCAL_SCHEMA_LANG, None, &rows, now)?;
+        Ok(true)
     }
 
     pub fn update_progress(
@@ -598,6 +770,25 @@ impl Store {
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
+}
+
+fn external_row(row: &Row<'_>) -> rusqlite::Result<Option<ExternalGame>> {
+    let platform: String = row.get(0)?;
+    let external_id: String = row.get(1)?;
+    let app_id: u32 = row.get(2)?;
+    let title: Option<String> = row.get(3)?;
+    let images: Option<String> = row.get(4)?;
+    let resolved_at: i64 = row.get(5)?;
+    Ok(Platform::parse(&platform).map(|platform| ExternalGame {
+        platform,
+        external_id,
+        app_id,
+        title,
+        images: images
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default(),
+        resolved_at,
+    }))
 }
 
 #[cfg(test)]
@@ -920,5 +1111,160 @@ mod tests {
         }
         let s = Store::open(&path).unwrap();
         assert!(s.is_unlocked(1, "A").unwrap());
+    }
+
+    fn key(platform: Platform, id: &str) -> ExternalId {
+        ExternalId {
+            platform,
+            id: id.into(),
+        }
+    }
+
+    fn text(api: &str, name: &str) -> LocalText {
+        LocalText {
+            api_name: api.into(),
+            display_name: name.into(),
+            description: format!("{name} description"),
+        }
+    }
+
+    #[test]
+    fn unknown_external_game_has_no_app_id() {
+        let s = Store::in_memory().unwrap();
+        assert_eq!(s.external_app_id(&key(Platform::Epic, "X")).unwrap(), None);
+    }
+
+    #[test]
+    fn save_external_with_steam_uses_steam_id() {
+        let s = Store::in_memory().unwrap();
+        let images = GameImages::default();
+        let id = s
+            .save_external_game(
+                &key(Platform::Ubisoft, "4"),
+                Some(33230),
+                Some("AC II"),
+                &images,
+                10,
+            )
+            .unwrap();
+        assert_eq!(id, 33230);
+        assert_eq!(
+            s.external_app_id(&key(Platform::Ubisoft, "4")).unwrap(),
+            Some(33230)
+        );
+        let game = s.external_game(33230).unwrap().unwrap();
+        assert_eq!(game.platform, Platform::Ubisoft);
+        assert_eq!(game.external_id, "4");
+        assert_eq!(game.resolved_at, 10);
+        assert_eq!(s.game_name(33230).unwrap(), Some("AC II".into()));
+    }
+
+    #[test]
+    fn save_external_without_steam_uses_synthetic_and_names_game() {
+        let s = Store::in_memory().unwrap();
+        let images = GameImages {
+            header: Some("https://h".into()),
+            ..GameImages::default()
+        };
+        let k = key(Platform::Epic, "Carnation");
+        let id = s
+            .save_external_game(&k, None, Some("Siege"), &images, 5)
+            .unwrap();
+        assert_eq!(id, synthetic_id(&k));
+        assert_eq!(s.game_name(id).unwrap(), Some("Siege".into()));
+        assert_eq!(s.external_game(id).unwrap().unwrap().images, images);
+        assert_eq!(
+            s.external_app_id(&key(Platform::Epic, "carnation"))
+                .unwrap(),
+            Some(id)
+        );
+        assert_eq!(s.external_games().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn external_title_does_not_replace_existing_name() {
+        let s = Store::in_memory().unwrap();
+        s.replace_schema(20900, "english", Some("The Witcher"), &[], 1)
+            .unwrap();
+        s.save_external_game(
+            &key(Platform::Gog, "1207658924"),
+            Some(20900),
+            Some("Witcher EE"),
+            &GameImages::default(),
+            2,
+        )
+        .unwrap();
+        assert_eq!(s.game_name(20900).unwrap(), Some("The Witcher".into()));
+    }
+
+    #[test]
+    fn synthetic_collision_moves_to_next_free() {
+        let s = Store::in_memory().unwrap();
+        let wanted = key(Platform::Gog, "A");
+        let taken = synthetic_id(&wanted);
+        s.conn
+            .execute(
+                "INSERT INTO external_games (platform, external_id, app_id, resolved_at) VALUES ('epic', 'other', ?1, 1)",
+                params![taken],
+            )
+            .unwrap();
+        let id = s
+            .save_external_game(&wanted, None, None, &GameImages::default(), 2)
+            .unwrap();
+        assert_eq!(id, taken + 1);
+    }
+
+    #[test]
+    fn local_schema_is_written_once_and_never_over_steam() {
+        let s = Store::in_memory().unwrap();
+        let texts = [text("A", "Alpha"), text("B", "Beta")];
+        assert!(s.replace_local_schema(0x8000_0001, &texts, 1).unwrap());
+        assert!(!s.replace_local_schema(0x8000_0001, &texts, 2).unwrap());
+        assert_eq!(
+            s.schema_info(0x8000_0001).unwrap(),
+            Some(("local".into(), 1))
+        );
+        let row = s.schema_row(0x8000_0001, "a").unwrap().unwrap();
+        assert_eq!(row.display_name, "Alpha");
+        assert_eq!(row.description, "Alpha description");
+        assert!(s.replace_local_schema(0x8000_0001, &texts[..1], 3).unwrap());
+        s.replace_schema(7, "english", Some("G"), &[row_named("X")], 1)
+            .unwrap();
+        assert!(!s.replace_local_schema(7, &texts, 2).unwrap());
+        assert_eq!(s.schema_info(7).unwrap(), Some(("english".into(), 1)));
+    }
+
+    fn row_named(api: &str) -> SchemaRow {
+        SchemaRow {
+            api_name: api.into(),
+            display_name: api.into(),
+            description: String::new(),
+            icon: None,
+            icon_gray: None,
+            hidden: false,
+            percent: None,
+        }
+    }
+
+    #[test]
+    fn old_database_gains_external_games_table() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("old.db");
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch("CREATE TABLE games (app_id INTEGER PRIMARY KEY, name TEXT, schema_lang TEXT, schema_fetched_at INTEGER);")
+            .unwrap();
+        let s = Store::open(&path).unwrap();
+        assert!(s.external_games().unwrap().is_empty());
+    }
+
+    #[test]
+    fn replace_schema_works_inside_an_open_transaction() {
+        let s = Store::in_memory().unwrap();
+        let tx = s.begin().unwrap();
+        s.replace_schema(7, "english", Some("G"), &[row("A", 1.0)], 1)
+            .unwrap();
+        tx.commit().unwrap();
+        assert_eq!(s.schema_names(7).unwrap(), vec!["A".to_owned()]);
     }
 }

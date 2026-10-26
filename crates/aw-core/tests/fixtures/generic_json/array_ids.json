@@ -1,0 +1,5 @@
+[
+  {"AchievementId": "ACH_A", "UnlockTime": 1712253396},
+  {"id": "ACH_B", "achieved": 1},
+  {"apiname": "ACH_C", "achieved": 0, "unlock_time": 0}
+]

@@ -1,0 +1,34 @@
+{
+  "ACH_FIRST_STEPS": {
+    "achievement_id": "ACH_FIRST_STEPS",
+    "description": "Walk out of the cave",
+    "display_name": "First Steps",
+    "flavor_text": "",
+    "icon_url": "file:///ACH_FIRST_STEPS_l",
+    "progress": 1.0,
+    "stat_info": {
+      "ACH_FIRST_STEPS": {
+        "current_value": 0,
+        "name": "ACH_FIRST_STEPS",
+        "threshold_value": 0
+      }
+    },
+    "unlock_time": 1712253396
+  },
+  "ACH_HOARDER": {
+    "achievement_id": "ACH_HOARDER",
+    "description": "Collect 50 shells",
+    "display_name": "Hoarder",
+    "flavor_text": "",
+    "icon_url": "file:///ACH_HOARDER_l",
+    "progress": 0.24,
+    "stat_info": {
+      "STAT_SHELLS": {
+        "current_value": 12,
+        "name": "STAT_SHELLS",
+        "threshold_value": 50
+      }
+    },
+    "unlock_time": -1
+  }
+}

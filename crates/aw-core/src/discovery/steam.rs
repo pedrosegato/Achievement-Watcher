@@ -75,6 +75,7 @@ pub fn stats_files(steam: &Path) -> Vec<Found> {
                 .then_some(Found {
                     source_id: "steam",
                     app_id,
+                    external: None,
                     path,
                     format: Format::SteamStats,
                 })

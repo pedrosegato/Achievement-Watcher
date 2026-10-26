@@ -1,0 +1,5 @@
+{
+  "ACH_ONE": {"Achieved": true, "UnlockTime": 1712253396},
+  "ACH_TWO": {"unlocked": "yes"},
+  "ACH_THREE": {"earned": false, "progress": 3, "max_progress": 10}
+}

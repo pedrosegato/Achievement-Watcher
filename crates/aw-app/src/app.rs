@@ -1,15 +1,17 @@
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use aw_core::discovery::detect::DetectConfig;
 use aw_core::discovery::folders::KnownFolders;
 use aw_core::discovery::steam::steam_install_path;
 use aw_core::engine::{CoreSettings, Engine, NewUnlock, ProgressUpdate, SyncOutcome};
+use aw_core::gamesdb::{self, GamesDb};
 use aw_core::lang::steam_language;
 use aw_core::metadata::SteamMeta;
+use aw_core::platform::{ExternalId, is_synthetic};
 use aw_core::store::Store;
 use aw_core::watcher::{self, WatchEvent, WatchOptions, WatcherHandle, unix_now};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
@@ -35,6 +37,7 @@ pub const GAMES_CHANGED: &str = "games-changed";
 pub const SETTINGS_CHANGED: &str = "settings-changed";
 pub const SCAN_PROGRESS: &str = "scan-progress";
 const QUICK_META_TIMEOUT: Duration = Duration::from_secs(3);
+const IDENTIFY_RETRY: Duration = Duration::from_secs(10 * 60);
 
 pub struct AppPaths {
     pub data_dir: PathBuf,
@@ -69,6 +72,7 @@ pub struct AppState {
 pub enum MetaJob {
     Ensure(u32),
     Art(u32),
+    Identify(ExternalId),
     Reset,
 }
 
@@ -540,6 +544,9 @@ fn handle_synced(app: &AppHandle, outcome: &SyncOutcome) {
     if outcome.first_boot || !outcome.new_unlocks.is_empty() {
         let _ = app.emit(GAMES_CHANGED, ());
     }
+    for key in &outcome.pending {
+        state.send_meta(MetaJob::Identify(key.clone()));
+    }
     queue_all_metadata(&state);
 }
 
@@ -555,6 +562,23 @@ fn queue_all_metadata(state: &AppState) {
     for id in ids {
         state.send_meta(MetaJob::Art(id));
     }
+}
+
+fn fetch_game_art(
+    meta: &SteamMeta,
+    store: &Store,
+    steam: Option<&Path>,
+    cache_dir: &Path,
+    app_id: u32,
+) -> bool {
+    if !is_synthetic(app_id) {
+        return crate::art::fetch_art(meta, steam, cache_dir, app_id);
+    }
+    store
+        .external_game(app_id)
+        .ok()
+        .flatten()
+        .is_some_and(|game| crate::art::fetch_external_art(meta, cache_dir, app_id, &game.images))
 }
 
 fn build_request(app: &AppHandle, unlock: &NewUnlock, last_for_game: bool) -> PopupRequest {
@@ -710,6 +734,8 @@ fn run_metadata(app: AppHandle, jobs: Receiver<MetaJob>) {
     let mut art_seen: HashSet<u32> = HashSet::new();
     let mut icons: VecDeque<u32> = VecDeque::new();
     let mut arts: VecDeque<u32> = VecDeque::new();
+    let games_db = GamesDb::new();
+    let mut identify_failed: HashMap<ExternalId, Instant> = HashMap::new();
     loop {
         let job = if icons.is_empty() && arts.is_empty() {
             match jobs.recv() {
@@ -733,12 +759,40 @@ fn run_metadata(app: AppHandle, jobs: Receiver<MetaJob>) {
                 match meta.ensure(&store, app_id, unix_now()) {
                     Ok(aw_core::metadata::Ensured::Fetched) => {
                         icons.push_back(app_id);
+                        state.with_watcher(WatcherHandle::request_sync);
                         let _ = app.emit(GAMES_CHANGED, ());
                     }
                     Ok(_) => icons.push_back(app_id),
                     Err(error) => {
                         tracing::warn!("metadata for {app_id}: {error}");
                         done.remove(&app_id);
+                    }
+                }
+            }
+            Some(MetaJob::Identify(key)) => {
+                let resolved = store.external_app_id(&key).ok().flatten().is_some();
+                let waiting = identify_failed
+                    .get(&key)
+                    .is_some_and(|at| at.elapsed() < IDENTIFY_RETRY);
+                if resolved || waiting {
+                    continue;
+                }
+                match gamesdb::resolve(&store, &games_db, &key, unix_now()) {
+                    Ok(app_id) => {
+                        identify_failed.remove(&key);
+                        tracing::info!("{} {} is app {app_id}", key.platform.as_str(), key.id);
+                        state.with_watcher(WatcherHandle::request_sync);
+                        state.send_meta(MetaJob::Ensure(app_id));
+                        state.send_meta(MetaJob::Art(app_id));
+                        let _ = app.emit(GAMES_CHANGED, ());
+                    }
+                    Err(error) => {
+                        tracing::warn!(
+                            "cannot identify {} {}: {error}",
+                            key.platform.as_str(),
+                            key.id
+                        );
+                        identify_failed.insert(key, Instant::now());
                     }
                 }
             }
@@ -751,8 +805,9 @@ fn run_metadata(app: AppHandle, jobs: Receiver<MetaJob>) {
             }
             None if !arts.is_empty() => {
                 if let Some(app_id) = arts.pop_front()
-                    && crate::art::fetch_art(
+                    && fetch_game_art(
                         &meta,
+                        &store,
                         steam.as_deref(),
                         &state.paths.cache_dir,
                         app_id,

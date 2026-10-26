@@ -1,5 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use serde::Serialize;
@@ -7,17 +8,20 @@ use serde::Serialize;
 use crate::discovery::detect::{DetectConfig, detect_in_game_folders, merge_found};
 use crate::discovery::folders::{Base, KnownFolders};
 use crate::discovery::gamediscovery::Unresolved;
+use crate::discovery::lumaplay::{self, Registry, WindowsRegistry};
 use crate::discovery::running::KnownGame;
 use crate::discovery::sources::builtin_sources;
 use crate::discovery::{Found, discover};
 use crate::fileio::{fnv1a64, read_with_retry};
 use crate::model::Unlock;
 use crate::model::sane_unlock_time;
-use crate::parsers::parse_file;
 use crate::parsers::smartsteam::{CRC_PREFIX, crc_name, crc32};
+use crate::parsers::{local_texts, parse_file};
+use crate::platform::{ExternalId, Platform, is_synthetic, map_name, uplay_key};
 use crate::store::{Store, StoreResult};
 
 const FIRST_BOOT_KEY: &str = "first_boot_done";
+const NAMES_PENDING: &str = "achievement names not available yet";
 const READ_BUDGET: Duration = Duration::from_secs(1);
 const APPROXIMATE_SOURCES: [(&str, i64); 1] = [("creamapi", 999)];
 const ALL_BASES: [(Base, &str); 5] = [
@@ -68,6 +72,7 @@ pub struct SyncOutcome {
     pub games_seen: usize,
     pub relocked: usize,
     pub files_failed: usize,
+    pub pending: Vec<ExternalId>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -84,6 +89,9 @@ pub struct Engine {
     game_found: Vec<Found>,
     unresolved: Vec<Unresolved>,
     known_games: Vec<KnownGame>,
+    registry: Arc<dyn Registry>,
+    identities: HashMap<ExternalId, u32>,
+    pending: Vec<ExternalId>,
 }
 
 impl Engine {
@@ -101,7 +109,18 @@ impl Engine {
             game_found: Vec::new(),
             unresolved: Vec::new(),
             known_games: Vec::new(),
+            registry: Arc::new(WindowsRegistry),
+            identities: HashMap::new(),
+            pending: Vec::new(),
         }
+    }
+
+    pub fn set_registry(&mut self, registry: Arc<dyn Registry>) {
+        self.registry = registry;
+    }
+
+    pub fn pending(&self) -> &[ExternalId] {
+        &self.pending
     }
 
     pub fn store(&self) -> &Store {
@@ -118,6 +137,44 @@ impl Engine {
 
     pub fn found(&self) -> Vec<Found> {
         merge_found(self.fixed_found.clone(), self.game_found.clone())
+            .into_iter()
+            .map(|mut file| {
+                if let Some(app_id) = file
+                    .external
+                    .as_ref()
+                    .and_then(|key| self.identities.get(key))
+                {
+                    file.app_id = *app_id;
+                }
+                file
+            })
+            .collect()
+    }
+
+    fn resolve_identities(&mut self) -> StoreResult<Vec<Found>> {
+        self.identities.clear();
+        let mut pending = BTreeSet::new();
+        let mut found = Vec::new();
+        for mut file in merge_found(self.fixed_found.clone(), self.game_found.clone()) {
+            if let Some(key) = &file.external {
+                match self.store.external_app_id(key)? {
+                    Some(app_id) => {
+                        self.identities.insert(key.clone(), app_id);
+                        file.app_id = app_id;
+                    }
+                    None => {
+                        pending.insert(key.clone());
+                        continue;
+                    }
+                }
+            }
+            found.push(file);
+        }
+        found.sort_by(|a, b| {
+            (a.app_id, a.source_id, &a.path).cmp(&(b.app_id, b.source_id, &b.path))
+        });
+        self.pending = pending.into_iter().collect();
+        Ok(found)
     }
 
     pub fn unresolved(&self) -> &[Unresolved] {
@@ -169,13 +226,15 @@ impl Engine {
         progress: &mut dyn FnMut(usize, usize),
     ) -> StoreResult<SyncOutcome> {
         self.fixed_found = discover(builtin_sources(), &self.folders);
+        self.fixed_found
+            .extend(lumaplay::discover(self.registry.as_ref()));
         if full {
             let in_games = detect_in_game_folders(&self.folders, &self.settings.detect);
             self.game_found = in_games.found;
             self.unresolved = in_games.unresolved;
             self.known_games = in_games.games;
         }
-        let found = self.found();
+        let found = self.resolve_identities()?;
         let first_boot = self.store.meta_get(FIRST_BOOT_KEY)?.is_none();
         let mut outcome = SyncOutcome {
             first_boot,
@@ -184,6 +243,7 @@ impl Engine {
                 .map(|f| f.app_id)
                 .collect::<BTreeSet<_>>()
                 .len(),
+            pending: self.pending.clone(),
             ..SyncOutcome::default()
         };
         let total = found.len();
@@ -211,7 +271,7 @@ impl Engine {
 
     fn sync_file(&self, file: &Found, now: i64, outcome: &mut SyncOutcome) -> StoreResult<()> {
         let path = file.path.to_string_lossy();
-        let bytes = match read_with_retry(&file.path, READ_BUDGET) {
+        let bytes = match self.read_bytes(file) {
             Ok(bytes) => bytes,
             Err(error) => {
                 outcome.files_failed += 1;
@@ -225,12 +285,19 @@ impl Engine {
             }
         };
         let hash = format!("{:016x}", fnv1a64(&bytes));
-        if self.store.file_hash(&path)?.as_deref() == Some(hash.as_str()) {
+        let previous = self.store.file_hash(&path)?;
+        if previous.as_deref() == Some(hash.as_str()) {
             return Ok(());
         }
+        let untimed = previous
+            .is_none()
+            .then(|| self.written_at(file))
+            .flatten()
+            .and_then(|written| sane_unlock_time(written, now))
+            .unwrap_or(now);
         let parsed = parse_file(file.format, &file.path, &bytes)
             .map_err(|error| error.to_string())
-            .and_then(|unlocks| self.resolve_crc_names(file, unlocks));
+            .and_then(|unlocks| self.resolve_names(file, unlocks));
         let unlocks = match parsed {
             Ok(unlocks) => unlocks,
             Err(error) => {
@@ -241,12 +308,18 @@ impl Engine {
                     .mark_file_error(&path, file.source_id, file.app_id, &error);
             }
         };
+        if file.external.is_some() && is_synthetic(file.app_id) {
+            let texts = local_texts(file.format, &bytes);
+            if !texts.is_empty() {
+                self.store.replace_local_schema(file.app_id, &texts, now)?;
+            }
+        }
         for unlock in &unlocks {
             if unlock.unlocked {
                 let time = unlock
                     .unlocked_at
                     .and_then(|raw| sane_unlock_time(raw, now))
-                    .unwrap_or(now);
+                    .unwrap_or(untimed);
                 if self.store.record_unlock(
                     file.app_id,
                     &unlock.api_name,
@@ -302,6 +375,52 @@ impl Engine {
 }
 
 impl Engine {
+    fn written_at(&self, file: &Found) -> Option<i64> {
+        if lumaplay::is_registry_path(&file.path) {
+            return lumaplay::written_at(self.registry.as_ref(), &file.path);
+        }
+        let modified = std::fs::metadata(&file.path).ok()?.modified().ok()?;
+        let seconds = modified
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()?
+            .as_secs();
+        i64::try_from(seconds).ok()
+    }
+
+    fn read_bytes(&self, file: &Found) -> std::io::Result<Vec<u8>> {
+        if lumaplay::is_registry_path(&file.path) {
+            lumaplay::snapshot(self.registry.as_ref(), &file.path)
+        } else {
+            read_with_retry(&file.path, READ_BUDGET)
+        }
+    }
+
+    fn resolve_names(&self, file: &Found, unlocks: Vec<Unlock>) -> Result<Vec<Unlock>, String> {
+        let unlocks = self.resolve_crc_names(file, unlocks)?;
+        let Some(external) = &file.external else {
+            return Ok(unlocks);
+        };
+        let platform = external.platform;
+        if is_synthetic(file.app_id) {
+            return Ok(rename(unlocks, |raw| fallback_name(platform, raw)));
+        }
+        if self
+            .store
+            .schema_info(file.app_id)
+            .map_err(|e| e.to_string())?
+            .is_none()
+        {
+            return Err(NAMES_PENDING.to_owned());
+        }
+        let schema = self
+            .store
+            .schema_names(file.app_id)
+            .map_err(|e| e.to_string())?;
+        Ok(rename(unlocks, |raw| {
+            map_name(platform, raw, &schema).unwrap_or_else(|| fallback_name(platform, raw))
+        }))
+    }
+
     fn resolve_crc_names(&self, file: &Found, unlocks: Vec<Unlock>) -> Result<Vec<Unlock>, String> {
         if !unlocks.iter().any(|u| u.api_name.starts_with(CRC_PREFIX)) {
             return Ok(unlocks);
@@ -320,11 +439,28 @@ impl Engine {
                     unlock.api_name = names
                         .get(&unlock.api_name)
                         .cloned()
-                        .ok_or_else(|| "achievement names not available yet".to_owned())?;
+                        .ok_or_else(|| NAMES_PENDING.to_owned())?;
                 }
                 Ok(unlock)
             })
             .collect()
+    }
+}
+
+fn rename(unlocks: Vec<Unlock>, name: impl Fn(&str) -> String) -> Vec<Unlock> {
+    unlocks
+        .into_iter()
+        .map(|mut unlock| {
+            unlock.api_name = name(&unlock.api_name);
+            unlock
+        })
+        .collect()
+}
+
+fn fallback_name(platform: Platform, raw: &str) -> String {
+    match platform {
+        Platform::Ubisoft => uplay_key(raw),
+        _ => raw.to_owned(),
     }
 }
 
@@ -361,6 +497,9 @@ fn nearest_existing(path: &Path) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::discovery::lumaplay::MemoryRegistry;
+    use crate::platform::{ExternalId, GameImages, Platform};
+    use std::sync::Arc;
 
     const NOW: i64 = 1_800_000_000;
 
@@ -688,5 +827,356 @@ achieved=true
                 .contains(&tmp.path().join("PublicDocuments").join("OnlineFix"))
         );
         assert!(targets.flat.contains(&tmp.path().join("RoamingAppData")));
+    }
+
+    fn lumaplay(id: &str, values: &[(&str, u64)]) -> Arc<dyn Registry> {
+        let mut r = MemoryRegistry::default();
+        r.keys
+            .insert(r"SOFTWARE\LumaPlay".into(), vec!["player".into()]);
+        r.keys
+            .insert(r"SOFTWARE\LumaPlay\player".into(), vec![id.into()]);
+        r.values.insert(
+            format!(r"SOFTWARE\LumaPlay\player\{id}\Achievements"),
+            values.iter().map(|(n, v)| ((*n).to_owned(), *v)).collect(),
+        );
+        Arc::new(r)
+    }
+
+    fn schema(e: &Engine, app_id: u32, names: &[&str]) {
+        let rows: Vec<crate::store::SchemaRow> = names
+            .iter()
+            .map(|name| crate::store::SchemaRow {
+                api_name: (*name).into(),
+                display_name: (*name).into(),
+                description: String::new(),
+                icon: None,
+                icon_gray: None,
+                hidden: false,
+                percent: None,
+            })
+            .collect();
+        e.store()
+            .replace_schema(app_id, "english", None, &rows, NOW)
+            .unwrap();
+    }
+
+    fn rune(root: &Path, id: &str, body: &str) -> PathBuf {
+        touch(
+            root,
+            &format!("Documents/RUNE/Ubisoft Connect/achievements/player/{id}/achievements.cfg"),
+            body,
+        )
+    }
+
+    fn ubisoft(id: &str) -> ExternalId {
+        ExternalId {
+            platform: Platform::Ubisoft,
+            id: id.into(),
+        }
+    }
+
+    const RUNE_ONE: &str = r#""achievements" { "1" { "earned" "1" "time" "1700000000" } }"#;
+
+    #[test]
+    fn external_file_waits_for_identity() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = touch(
+            tmp.path(),
+            "RoamingAppData/NemirtingasEpicEmu/player/X/achievements.json",
+            r#"{"A":{"unlock_time":1700000000}}"#,
+        );
+        let mut e = engine(tmp.path());
+        let out = e.sync(NOW, true).unwrap();
+        assert!(out.new_unlocks.is_empty());
+        assert_eq!(
+            out.pending,
+            vec![ExternalId {
+                platform: Platform::Epic,
+                id: "X".into()
+            }]
+        );
+        assert_eq!(out.games_seen, 0);
+        assert_eq!(e.store().file_hash(&path.to_string_lossy()).unwrap(), None);
+        assert!(e.store().games_overview().unwrap().is_empty());
+    }
+
+    #[test]
+    fn resolved_external_file_is_read_under_steam_id_with_schema_names() {
+        let tmp = tempfile::tempdir().unwrap();
+        rune(tmp.path(), "4", RUNE_ONE);
+        let mut e = engine(tmp.path());
+        e.store()
+            .save_external_game(
+                &ubisoft("4"),
+                Some(33230),
+                Some("AC II"),
+                &GameImages::default(),
+                NOW,
+            )
+            .unwrap();
+        schema(&e, 33230, &["ACH_ONE_1", "ACH_TWO_2"]);
+        let out = e.sync(NOW, true).unwrap();
+        assert!(out.pending.is_empty());
+        let got: Vec<(u32, &str)> = out
+            .new_unlocks
+            .iter()
+            .map(|u| (u.app_id, u.api_name.as_str()))
+            .collect();
+        assert_eq!(got, vec![(33230, "ACH_ONE_1")]);
+        assert!(e.found().iter().all(|f| f.app_id == 33230));
+    }
+
+    #[test]
+    fn resolved_steam_game_without_schema_waits() {
+        let tmp = tempfile::tempdir().unwrap();
+        rune(tmp.path(), "4", RUNE_ONE);
+        let mut e = engine(tmp.path());
+        e.store()
+            .save_external_game(
+                &ubisoft("4"),
+                Some(33230),
+                None,
+                &GameImages::default(),
+                NOW,
+            )
+            .unwrap();
+        let out = e.sync(NOW, true).unwrap();
+        assert!(out.new_unlocks.is_empty());
+        assert_eq!(out.files_failed, 1);
+        schema(&e, 33230, &["ACH_ONE_1"]);
+        let out = e.sync(NOW + 1, false).unwrap();
+        assert_eq!(out.new_unlocks.len(), 1);
+        assert_eq!(out.new_unlocks[0].api_name, "ACH_ONE_1");
+    }
+
+    #[test]
+    fn unmatched_ubisoft_names_fall_back_to_numeric_key() {
+        let tmp = tempfile::tempdir().unwrap();
+        rune(tmp.path(), "4", RUNE_ONE);
+        let mut e = engine(tmp.path());
+        e.set_registry(lumaplay("4", &[("ACH_1", 1)]));
+        e.store()
+            .save_external_game(
+                &ubisoft("4"),
+                Some(33230),
+                None,
+                &GameImages::default(),
+                NOW,
+            )
+            .unwrap();
+        schema(&e, 33230, &["SOMETHING_ELSE"]);
+        let out = e.sync(NOW, true).unwrap();
+        let names: Vec<&str> = out
+            .new_unlocks
+            .iter()
+            .map(|u| u.api_name.as_str())
+            .collect();
+        assert_eq!(names, vec!["1"]);
+    }
+
+    #[test]
+    fn rune_and_lumaplay_merge_into_one_achievement() {
+        let tmp = tempfile::tempdir().unwrap();
+        rune(tmp.path(), "4", RUNE_ONE);
+        let mut e = engine(tmp.path());
+        e.set_registry(lumaplay("4", &[("ACH_1", 1), ("ACH_2", 0)]));
+        e.store()
+            .save_external_game(
+                &ubisoft("4"),
+                Some(33230),
+                None,
+                &GameImages::default(),
+                NOW,
+            )
+            .unwrap();
+        schema(&e, 33230, &["ACH_ONE_1", "ACH_TWO_2"]);
+        let out = e.sync(NOW, true).unwrap();
+        assert_eq!(out.new_unlocks.len(), 1);
+        assert_eq!(
+            e.store().unlock_time(33230, "ACH_ONE_1").unwrap(),
+            Some(1_700_000_000)
+        );
+        assert!(!e.store().is_unlocked(33230, "ACH_TWO_2").unwrap());
+    }
+
+    #[test]
+    fn pending_file_is_read_after_resolution_without_change_on_disk() {
+        let tmp = tempfile::tempdir().unwrap();
+        rune(tmp.path(), "4", RUNE_ONE);
+        let mut e = engine(tmp.path());
+        let out = e.sync(NOW, true).unwrap();
+        assert_eq!(out.pending, vec![ubisoft("4")]);
+        e.store()
+            .save_external_game(
+                &ubisoft("4"),
+                None,
+                Some("Lost game"),
+                &GameImages::default(),
+                NOW,
+            )
+            .unwrap();
+        let out = e.sync(NOW + 1, false).unwrap();
+        assert!(out.pending.is_empty());
+        assert_eq!(out.new_unlocks.len(), 1);
+        assert!(crate::platform::is_synthetic(out.new_unlocks[0].app_id));
+        assert_eq!(out.new_unlocks[0].api_name, "1");
+    }
+
+    #[test]
+    fn synthetic_nemirtingas_writes_local_schema_once() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = touch(
+            tmp.path(),
+            "RoamingAppData/NemirtingasEpicEmu/player/X/achievements.json",
+            r#"{"A":{"display_name":"Alpha","description":"First","unlock_time":1700000000},"B":{"display_name":"Beta","unlock_time":-1}}"#,
+        );
+        let mut e = engine(tmp.path());
+        let key = ExternalId {
+            platform: Platform::Epic,
+            id: "X".into(),
+        };
+        let app_id = e
+            .store()
+            .save_external_game(&key, None, Some("X"), &GameImages::default(), NOW)
+            .unwrap();
+        e.sync(NOW, true).unwrap();
+        assert_eq!(
+            e.store().schema_info(app_id).unwrap(),
+            Some(("local".into(), NOW))
+        );
+        assert_eq!(
+            e.store()
+                .schema_row(app_id, "A")
+                .unwrap()
+                .unwrap()
+                .display_name,
+            "Alpha"
+        );
+        std::fs::write(
+            &path,
+            r#"{"A":{"display_name":"Alpha","description":"First","unlock_time":1700000000},"B":{"display_name":"Beta","unlock_time":1700000100}}"#,
+        )
+        .unwrap();
+        e.sync(NOW + 5, false).unwrap();
+        assert_eq!(
+            e.store().schema_info(app_id).unwrap(),
+            Some(("local".into(), NOW))
+        );
+    }
+
+    #[test]
+    fn local_schema_never_written_for_steam_mapped_games() {
+        let tmp = tempfile::tempdir().unwrap();
+        touch(
+            tmp.path(),
+            "RoamingAppData/NemirtingasEpicEmu/player/X/achievements.json",
+            r#"{"A":{"display_name":"Alpha","unlock_time":1700000000}}"#,
+        );
+        let mut e = engine(tmp.path());
+        let key = ExternalId {
+            platform: Platform::Epic,
+            id: "X".into(),
+        };
+        e.store()
+            .save_external_game(&key, Some(10), None, &GameImages::default(), NOW)
+            .unwrap();
+        e.sync(NOW, true).unwrap();
+        assert_eq!(e.store().schema_info(10).unwrap(), None);
+    }
+
+    #[test]
+    fn lumaplay_found_reads_from_registry() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut e = engine(tmp.path());
+        e.set_registry(lumaplay("635", &[("ACH_3", 1)]));
+        e.store()
+            .save_external_game(&ubisoft("635"), None, None, &GameImages::default(), NOW)
+            .unwrap();
+        let out = e.sync(NOW, true).unwrap();
+        assert_eq!(out.new_unlocks.len(), 1);
+        assert_eq!(out.new_unlocks[0].api_name, "3");
+        assert_eq!(out.new_unlocks[0].unlocked_at, NOW);
+        assert_eq!(out.new_unlocks[0].source_id, "lumaplay");
+    }
+
+    fn set_mtime(path: &Path, unix: i64) {
+        let when = std::time::UNIX_EPOCH + Duration::from_secs(u64::try_from(unix).unwrap());
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(when)
+            .unwrap();
+    }
+
+    fn nemirtingas_after_first_boot(root: &Path, mtime: i64) -> (Engine, u32) {
+        let mut e = engine(root);
+        e.set_registry(Arc::new(MemoryRegistry::default()));
+        e.sync(NOW - 7200, true).unwrap();
+        let path = touch(
+            root,
+            "RoamingAppData/NemirtingasEpicEmu/player/X/achievements.json",
+            r#"{"A":{"unlock_time":3600000000000},"B":{"unlock_time":-1}}"#,
+        );
+        set_mtime(&path, mtime);
+        let key = ExternalId {
+            platform: Platform::Epic,
+            id: "X".into(),
+        };
+        let app_id = e
+            .store()
+            .save_external_game(&key, None, None, &GameImages::default(), NOW)
+            .unwrap();
+        (e, app_id)
+    }
+
+    #[test]
+    fn first_read_untimed_unlock_uses_file_time_and_stays_silent() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (mut e, app_id) = nemirtingas_after_first_boot(tmp.path(), NOW - 3600);
+        let out = e.sync(NOW, false).unwrap();
+        assert_eq!(out.new_unlocks.len(), 1);
+        assert_eq!(out.new_unlocks[0].unlocked_at, NOW - 3600);
+        assert!(!out.new_unlocks[0].notify);
+        assert_eq!(
+            e.store().unlock_time(app_id, "A").unwrap(),
+            Some(NOW - 3600)
+        );
+    }
+
+    #[test]
+    fn first_read_untimed_unlock_of_fresh_file_notifies() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (mut e, _) = nemirtingas_after_first_boot(tmp.path(), NOW - 2);
+        let out = e.sync(NOW, false).unwrap();
+        assert_eq!(out.new_unlocks[0].unlocked_at, NOW - 2);
+        assert!(out.new_unlocks[0].notify);
+    }
+
+    #[test]
+    fn first_read_lumaplay_uses_key_write_time() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut e = engine(tmp.path());
+        e.set_registry(Arc::new(MemoryRegistry::default()));
+        e.sync(NOW - 7200, true).unwrap();
+        let mut registry = MemoryRegistry::default();
+        registry
+            .keys
+            .insert(r"SOFTWARE\LumaPlay".into(), vec!["player".into()]);
+        registry
+            .keys
+            .insert(r"SOFTWARE\LumaPlay\player".into(), vec!["9".into()]);
+        let key = r"SOFTWARE\LumaPlay\player\9\Achievements".to_owned();
+        registry
+            .values
+            .insert(key.clone(), vec![("ACH_1".into(), 1)]);
+        registry.written.insert(key, NOW - 86_400);
+        e.set_registry(Arc::new(registry));
+        e.store()
+            .save_external_game(&ubisoft("9"), None, None, &GameImages::default(), NOW)
+            .unwrap();
+        let out = e.sync(NOW, false).unwrap();
+        assert_eq!(out.new_unlocks[0].unlocked_at, NOW - 86_400);
+        assert!(!out.new_unlocks[0].notify);
     }
 }

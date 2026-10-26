@@ -1,4 +1,4 @@
-use super::unlock_time;
+use super::{truthy, unlock_time};
 use crate::model::Unlock;
 use crate::parsers::ini::Ini;
 
@@ -12,8 +12,7 @@ pub(crate) fn parse_tenoke(text: &str) -> Vec<Unlock> {
         .iter()
         .map(|(name, value)| {
             let fields = fields(value);
-            let unlocked =
-                field(&fields, "unlocked").is_some_and(|v| v.eq_ignore_ascii_case("true"));
+            let unlocked = field(&fields, "unlocked").is_some_and(truthy);
             let time = field(&fields, "time").and_then(unlock_time);
             Unlock::new(name.clone(), unlocked, time)
         })
@@ -83,5 +82,38 @@ mod tests {
     #[test]
     fn missing_section_is_empty() {
         assert!(parse_tenoke("[OTHER]\n\"A1\" = {unlocked = true}\n").is_empty());
+    }
+
+    #[test]
+    fn accepts_one_and_yes() {
+        let u = parse_tenoke(
+            "[ACHIEVEMENTS]
+\"A1\" = {unlocked = 1, time = 1700000000}
+\"A2\" = {unlocked = yes}
+\"A3\" = {unlocked = 0}
+",
+        );
+        assert_eq!(
+            u,
+            vec![
+                Unlock::new("A1", true, Some(1_700_000_000)),
+                Unlock::new("A2", true, None),
+                Unlock::new("A3", false, None)
+            ]
+        );
+    }
+
+    #[test]
+    fn stats_section_is_ignored() {
+        assert_eq!(
+            parse_tenoke(
+                "[STATS]
+\"S\" = 10
+[ACHIEVEMENTS]
+\"A1\" = {unlocked = true}
+"
+            ),
+            vec![Unlock::new("A1", true, None)]
+        );
     }
 }
