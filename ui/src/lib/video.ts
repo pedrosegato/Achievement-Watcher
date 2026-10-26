@@ -1,6 +1,6 @@
 import type { VideoFormat, VideoQuality } from "../types/domain";
 
-const MBPS_AT_30: Record<VideoQuality, number> = { light: 3, balanced: 6, high: 8 };
+const MBPS_AT_30: Record<VideoQuality, number> = { light: 4.5, balanced: 9, high: 12 };
 const HIGH_FPS_COST = 1.6;
 const HIGHEST_FPS_COST = 2.4;
 const FORMAT_COST: Record<VideoFormat, number> = { compatible: 1.4, small: 1 };
