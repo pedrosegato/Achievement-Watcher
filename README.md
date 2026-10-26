@@ -20,6 +20,7 @@ Install it, forget about it: on first start it finds every game and achievement 
 - **Steam client achievements** in the same library (no popup by default, Steam already shows one).
 - **Screenshots** to `Pictures\<Game>\<Achievement>.png` and optional **video clips** of the moments before an unlock (ffmpeg is downloaded only if you turn it on).
 - **English and Portuguese** interface, automatic updates, and a diagnostics page with a one-click export.
+- **Missing achievement report**: one click in a game's achievement list zips the files it reads and what it found in them, ready to attach to an issue.
 - **Offline friendly**: names, descriptions and icons come from Steam's public API without a key and are cached on disk.
 
 ## Supported emulators
@@ -37,7 +38,15 @@ Install it, forget about it: on first start it finds every game and achievement 
 | RAZOR1911 | `%APPDATA%\.1911\<appid>\achievement` |
 | SmartSteamEmu | `%APPDATA%\SmartSteamEmu\<appid>\stats.bin` |
 | ALI213, Hoodlum, DARKSiDERS, Catherine, 3DM | marker files inside the game folder |
+| RUNE (Ubisoft) | `Documents\RUNE\Ubisoft Connect\achievements` |
+| Goldberg UplayEmu, R1 UplayEmu | `%APPDATA%\Goldberg UplayEmu Saves`, `%APPDATA%\R1 UplayEmu Saves` |
+| LumaPlay (Ubisoft) | `HKCU\SOFTWARE\LumaPlay` in the registry |
+| anadius LSX (EA) | `%LOCALAPPDATA%\anadius\LSX emu\achievement_watcher` |
+| Nemirtingas Epic, Nemirtingas Galaxy | `%APPDATA%\NemirtingasEpicEmu`, `%APPDATA%\NemirtingasGalaxyEmu` |
+| UniverseLAN (GOG) | `%LOCALAPPDATA%\UniverseLAN`, `UniverseLAN.ini` inside the game folder |
 | Steam client | `Steam\appcache\stats` |
+
+Ubisoft, Epic and GOG games are matched to their Steam version through GOG's public game database (`gamesdb.gog.com`), so names, icons and rarity come from Steam. A game with no Steam version keeps the names the crack saved and gets its artwork from that database.
 
 ## Install
 

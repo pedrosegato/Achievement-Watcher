@@ -15,4 +15,6 @@ Achievement Watcher is licensed under the [LGPL-3.0 License](./LICENSE).
 - **PlayStation styles** – SST typeface, PlayStation logo and trophy art, © Sony Interactive Entertainment
 - **Xbox 360 style** – based on the [Xbox 360 Achievement pen](https://codepen.io/UntitledCoder/pen/VYjyxqz) by UntitledCoder; trophy icon from [Font Awesome Free](https://fontawesome.com/license/free), CC BY 4.0; Xbox logo, © Microsoft
 - **Schibsted Grotesk** – SIL Open Font License 1.1, see `ui/public/fonts/OFL.txt`
+- **Ubisoft achievement ids** – matching rule adapted from [PSerban93/Achievements](https://github.com/PSerban93/Achievements), MIT
+- **Game titles and artwork for non-Steam games** – from GOG's public game database (gamesdb.gog.com), © their respective owners
 - Rust and npm libraries are used under their own licenses (MIT, Apache-2.0 and compatible)
