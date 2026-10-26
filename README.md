@@ -46,7 +46,7 @@ Install it, forget about it: on first start it finds every game and achievement 
 | UniverseLAN (GOG) | `%LOCALAPPDATA%\UniverseLAN`, `UniverseLAN.ini` inside the game folder |
 | Steam client | `Steam\appcache\stats` |
 
-Ubisoft, Epic and GOG games are matched to their Steam version through GOG's public game database (`gamesdb.gog.com`), so names, icons and rarity come from Steam. A game with no Steam version keeps the names the crack saved and gets its artwork from that database.
+Ubisoft, Epic and GOG games are matched to their Steam version through GOG's public game database (`gamesdb.gog.com`), so names, icons and rarity come from Steam. A game with no Steam version keeps the names the emulator saved and gets its artwork from that database.
 
 ## Install
 

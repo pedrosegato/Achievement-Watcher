@@ -94,7 +94,7 @@ mod tests {
             "\"AppState\" { \"appid\" \"480\" \"name\" \"S\" \"StateFlags\" \"4\" \"installdir\" \"Spacewar\" }",
         );
         touch(&lib, "steamapps/common/Spacewar/a.exe", "");
-        touch(&lib, "steamapps/common/Cracked/b.exe", "");
+        touch(&lib, "steamapps/common/Unlisted/b.exe", "");
         let roots = tmp.path().join("Jogos");
         touch(&roots, "ELDEN RING/Game/eldenring.exe", "");
         touch(&roots, "Other/x.exe", "");
@@ -119,7 +119,7 @@ mod tests {
                     true
                 ),
                 (
-                    lib.join("steamapps").join("common").join("Cracked"),
+                    lib.join("steamapps").join("common").join("Unlisted"),
                     None,
                     false
                 ),

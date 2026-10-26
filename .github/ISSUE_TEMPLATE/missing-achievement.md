@@ -10,7 +10,7 @@ assignees: ''
 **Game**
 Name of the game and where you got it (Steam, Ubisoft, Epic, GOG, EA).
 
-**Crack or emulator**
+**Emulator**
 Which one the game uses, if you know it (for example Goldberg, OnlineFix, RUNE, LumaPlay, Nemirtingas, UniverseLAN, anadius).
 
 **What happened**
