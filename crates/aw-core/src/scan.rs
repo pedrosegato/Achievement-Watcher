@@ -147,6 +147,7 @@ mod tests {
         Found {
             source_id,
             app_id,
+            external: None,
             path,
             format,
         }
@@ -239,6 +240,7 @@ mod tests {
         let missing = Found {
             source_id: "gse",
             app_id: 9,
+            external: None,
             path: PathBuf::from("does/not/exist.json"),
             format: Format::GoldbergJson,
         };

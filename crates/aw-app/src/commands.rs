@@ -3,9 +3,11 @@ use std::path::PathBuf;
 
 use aw_core::discovery::appinfo::{LogoPosition, read_logo_position};
 use aw_core::discovery::gamediscovery::Unresolved;
+use aw_core::discovery::lumaplay::WindowsRegistry;
 use aw_core::discovery::sources::builtin_sources;
 use aw_core::discovery::steam::steam_install_path;
-use aw_core::store::{AchievementView, FileReport, GameOverview};
+use aw_core::platform::ExternalId;
+use aw_core::store::{AchievementView, ExternalGame, FileReport, GameOverview};
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
@@ -14,11 +16,16 @@ use crate::art::{ArtKind, art_url, versioned_url};
 use crate::diag;
 use crate::popup::{PROTOCOL_ORIGIN, PopupKind};
 use crate::presets::{self, PresetInfo};
+use crate::report;
 use crate::settings::Settings;
 use crate::sound;
 use crate::sounds::{self, SoundEvent, SoundPack};
 
 const CDN: &str = "https://cdn.akamai.steamstatic.com";
+const EXTRA_SOURCE_NAMES: [(&str, &str); 2] = [
+    ("lumaplay", "LumaPlay"),
+    ("universelan_game", "UniverseLAN"),
+];
 const COMMUNITY: &str = "https://shared.akamai.steamstatic.com/community_assets/images/apps";
 const STEAM_SOURCE: &str = "steam";
 pub const RECENT_ICONS: usize = 6;
@@ -106,6 +113,8 @@ pub struct Diagnostics {
     pub sources: Vec<SourceRow>,
     pub watched: Vec<String>,
     pub unresolved: Vec<Unresolved>,
+    pub pending: Vec<ExternalId>,
+    pub external: Vec<ExternalGame>,
     pub files: Vec<FileReport>,
     pub log_tail: Vec<String>,
 }
@@ -122,6 +131,9 @@ fn display_name(app_id: u32, name: Option<String>) -> String {
 pub fn origin_name(source_id: &str) -> String {
     if source_id == STEAM_SOURCE {
         return "Steam".into();
+    }
+    if let Some((_, name)) = EXTRA_SOURCE_NAMES.iter().find(|(id, _)| *id == source_id) {
+        return (*name).into();
     }
     builtin_sources()
         .iter()
@@ -453,6 +465,7 @@ pub fn diagnostics(state: State<'_, AppState>) -> Result<Diagnostics, String> {
         })
         .collect();
     let files = state.store().files_report().map_err(|e| e.to_string())?;
+    let external = state.store().external_games().map_err(|e| e.to_string())?;
     Ok(Diagnostics {
         version: env!("CARGO_PKG_VERSION").into(),
         data_dir: state.paths.data_dir.display().to_string(),
@@ -465,6 +478,8 @@ pub fn diagnostics(state: State<'_, AppState>) -> Result<Diagnostics, String> {
             .map(|p| p.display().to_string())
             .collect(),
         unresolved: snapshot.unresolved,
+        pending: snapshot.pending,
+        external,
         files,
         log_tail: diag::log_tail(&state.paths.logs_dir, 200),
     })
@@ -494,6 +509,39 @@ pub fn export_diagnostics(app: AppHandle, state: State<'_, AppState>) -> Result<
         .unwrap_or_else(|_| state.paths.data_dir.clone());
     let stamp = aw_core::watcher::unix_now();
     let target = dir.join(format!("achievement-watcher-diagnostics-{stamp}.zip"));
+    diag::write_zip(&target, &entries)?;
+    Ok(target.display().to_string())
+}
+
+#[tauri::command]
+pub fn export_game_report(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    app_id: u32,
+) -> Result<String, String> {
+    let found = state
+        .with_watcher(|w| w.snapshot())
+        .unwrap_or_default()
+        .found;
+    let stamp = aw_core::watcher::unix_now();
+    let mut entries = report::build(
+        &state.store(),
+        &found,
+        &WindowsRegistry,
+        app_id,
+        env!("CARGO_PKG_VERSION"),
+        stamp,
+    )?;
+    if let Some(log) = diag::log_files(&state.paths.logs_dir).pop()
+        && let (Some(name), Ok(bytes)) = (log.file_name(), std::fs::read(&log))
+    {
+        entries.push((format!("logs/{}", name.to_string_lossy()), bytes));
+    }
+    let dir = app
+        .path()
+        .download_dir()
+        .unwrap_or_else(|_| state.paths.data_dir.clone());
+    let target = dir.join(format!("achievement-watcher-report-{app_id}-{stamp}.zip"));
     diag::write_zip(&target, &entries)?;
     Ok(target.display().to_string())
 }
@@ -668,5 +716,13 @@ mod tests {
         ]);
         let names: Vec<&str> = ordered.iter().map(|v| v.api_name.as_str()).collect();
         assert_eq!(names, ["rare", "Mid", "common", "nodata"]);
+    }
+
+    #[test]
+    fn origin_names_cover_registry_and_marker_sources() {
+        assert_eq!(origin_name("lumaplay"), "LumaPlay");
+        assert_eq!(origin_name("universelan_game"), "UniverseLAN");
+        assert_eq!(origin_name("rune_uplay_documents"), "RUNE Ubisoft");
+        assert_eq!(origin_name("nemirtingas_epic"), "Nemirtingas Epic");
     }
 }

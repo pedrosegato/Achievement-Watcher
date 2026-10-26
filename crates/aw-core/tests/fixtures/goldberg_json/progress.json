@@ -1,0 +1,4 @@
+{
+  "ACH_COLLECT": {"earned": false, "earned_time": 0, "progress": 7, "max_progress": 20},
+  "ACH_DONE": {"earned": true, "earned_time": 1712253396, "progress": 20, "max_progress": 20}
+}

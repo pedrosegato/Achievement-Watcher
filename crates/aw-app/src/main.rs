@@ -12,6 +12,7 @@ mod popup;
 mod popup_queue;
 mod presets;
 mod protocol;
+mod report;
 mod settings;
 mod shot;
 mod sound;
@@ -53,6 +54,7 @@ fn main() {
             commands::rescan,
             commands::diagnostics,
             commands::export_diagnostics,
+            commands::export_game_report,
             commands::open_path,
             commands::overlay_game,
             commands::hotkey_error,

@@ -2,9 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Collapsible } from "../../components/Collapsible";
 import { useI18n } from "../../i18n/useI18n";
+import { externalLabel, isSynthetic, platformLabel } from "../../lib/platforms";
 import { queries } from "../../lib/queries";
 
-type Section = "emulators" | "files" | "unresolved" | "log";
+type Section = "emulators" | "files" | "external" | "unresolved" | "log";
 
 const SHOWN_FILES = 8;
 const STEAM = "steam";
@@ -66,6 +67,37 @@ export function DiagnosticsSections() {
           </p>
         ))}
         {extra > 0 && <p className={`${line} text-dim`}>{t("settings.diag.more", { n: extra })}</p>}
+      </Collapsible>
+      <Collapsible
+        open={open.has("external")}
+        onToggle={() => toggle("external")}
+        header={t("settings.diag.external")}
+        count={data.external.length + data.pending.length}
+      >
+        {data.external.length + data.pending.length === 0 && (
+          <p className={line}>{t("settings.diag.none")}</p>
+        )}
+        {data.external.map((game) => (
+          <p key={`${game.platform}:${game.external_id}`} className={line}>
+            <b className="font-semibold">
+              {game.title ?? externalLabel({ platform: game.platform, id: game.external_id })}
+            </b>
+            <span className="text-dim">
+              {platformLabel(game.platform)} {game.external_id}
+            </span>
+            <span className="text-muted">
+              {isSynthetic(game.app_id)
+                ? t("settings.diag.noSteam")
+                : t("settings.diag.steamApp", { id: game.app_id })}
+            </span>
+          </p>
+        ))}
+        {data.pending.map((key) => (
+          <p key={`pending:${key.platform}:${key.id}`} className={line}>
+            <b className="font-semibold">{externalLabel(key)}</b>
+            <span className="text-muted">{t("settings.diag.identifying")}</span>
+          </p>
+        ))}
       </Collapsible>
       <Collapsible
         open={open.has("unresolved")}

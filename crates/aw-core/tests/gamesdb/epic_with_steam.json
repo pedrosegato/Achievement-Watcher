@@ -1,0 +1,60 @@
+{
+  "title": {
+    "*": "Grand Theft Auto V",
+    "en-US": "Grand Theft Auto V"
+  },
+  "external_id": "9d2d0eb64d5c44529cece33fe2a46482",
+  "platform_id": "epic",
+  "game": {
+    "title": {
+      "*": "Grand Theft Auto V",
+      "en-US": "Grand Theft Auto V"
+    },
+    "releases": [
+      {
+        "platform_id": "steam",
+        "external_id": "271590"
+      },
+      {
+        "platform_id": "xboxone",
+        "external_id": "972249091"
+      },
+      {
+        "platform_id": "xboxone",
+        "external_id": "1050025307"
+      },
+      {
+        "platform_id": "psn",
+        "external_id": "CUSA00411_00"
+      },
+      {
+        "platform_id": "psn",
+        "external_id": "NPWR03885_00"
+      },
+      {
+        "platform_id": "psn",
+        "external_id": "CUSA00419_00"
+      },
+      {
+        "platform_id": "psn",
+        "external_id": "CUSA00880_00"
+      },
+      {
+        "platform_id": "egg",
+        "external_id": "G2"
+      }
+    ],
+    "background": {
+      "url_format": "https://images.gog.com/79b33f20eeb88783a4bdcafd659e07f0cb8f21ad7fe075c609c00bb1f0c0a7d2{formatter}.{ext}?namespace=gamesdb"
+    },
+    "logo": {
+      "url_format": "https://images.gog.com/6f77914749ac144643774062fc355131863d0a716566b4bc7ba037769f5050f6{formatter}.{ext}?namespace=gamesdb"
+    },
+    "vertical_cover": {
+      "url_format": "https://images.gog.com/2d5277bd1949774a1b79e18157c84817968c4d6893ccda316a6e503e84799eab{formatter}.{ext}?namespace=gamesdb"
+    },
+    "horizontal_artwork": {
+      "url_format": "https://images.gog.com/79b33f20eeb88783a4bdcafd659e07f0cb8f21ad7fe075c609c00bb1f0c0a7d2{formatter}.{ext}?namespace=gamesdb"
+    }
+  }
+}

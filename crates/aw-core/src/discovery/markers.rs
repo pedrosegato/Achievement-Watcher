@@ -6,6 +6,7 @@ use crate::discovery::gamedirs::subdirs;
 use crate::discovery::gamediscovery::{Unresolved, leading_digits, read_text};
 use crate::parsers::Format;
 use crate::parsers::ini::{Ini, Section};
+use crate::platform::{ExternalId, Platform, valid_external_id};
 
 const ALI213_MARKERS: [&str; 3] = ["ALI213.ini", "valve.ini", "SteamConfig.ini"];
 const GAME_SETTINGS_MARKERS: [(&str, &str); 3] = [
@@ -14,6 +15,10 @@ const GAME_SETTINGS_MARKERS: [(&str, &str); 3] = [
     ("steam_api.ini", "skidrow_game"),
 ];
 const ALI213_FILE: &str = "Achievements.Bin";
+const UNIVERSELAN_MARKER: &str = "UniverseLAN.ini";
+const GOG_INFO_PREFIX: &str = "goggame-";
+const GOG_INFO_SUFFIX: &str = ".info";
+const GOG_INFO_LEVELS: usize = 4;
 
 #[derive(Debug, Default)]
 pub struct MarkerResult {
@@ -27,9 +32,29 @@ impl MarkerResult {
             Some(app_id) => self.found.push(Found {
                 source_id,
                 app_id,
+                external: None,
                 path,
                 format,
             }),
+            None => self.unresolved.push(Unresolved {
+                source_id,
+                path,
+                reason: "app id not found",
+            }),
+        }
+    }
+
+    fn add_external(
+        &mut self,
+        source_id: &'static str,
+        external: Option<ExternalId>,
+        path: PathBuf,
+        format: Format,
+    ) {
+        match external {
+            Some(external) => self
+                .found
+                .push(Found::external(source_id, external, path, format)),
             None => self.unresolved.push(Unresolved {
                 source_id,
                 path,
@@ -52,6 +77,7 @@ pub fn scan_markers(
         game_settings(root, base, documents, fallback_app_id, &mut result);
         catherine(root, base, fallback_app_id, &mut result);
         threedm_game(base, fallback_app_id, &mut result);
+        universelan(root, base, &mut result);
     }
     result
 }
@@ -205,6 +231,53 @@ fn threedm_game(base: &Path, fallback: Option<u32>, result: &mut MarkerResult) {
     }
 }
 
+fn universelan(root: &Path, base: &Path, result: &mut MarkerResult) {
+    if !base.join(UNIVERSELAN_MARKER).is_file() {
+        return;
+    }
+    let path = base.join("UniverseLANData").join("Achievements.ini");
+    if !path.is_file() {
+        return;
+    }
+    let external = base
+        .ancestors()
+        .take(GOG_INFO_LEVELS)
+        .take_while(|dir| dir.starts_with(root))
+        .find_map(gog_root_id)
+        .map(|id| ExternalId {
+            platform: Platform::Gog,
+            id,
+        });
+    result.add_external("universelan_game", external, path, Format::GenericIni);
+}
+
+fn gog_root_id(dir: &Path) -> Option<String> {
+    let mut infos: Vec<PathBuf> = std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| {
+                    let lower = name.to_ascii_lowercase();
+                    lower.starts_with(GOG_INFO_PREFIX) && lower.ends_with(GOG_INFO_SUFFIX)
+                })
+        })
+        .collect();
+    infos.sort();
+    infos.iter().find_map(|path| {
+        let text = read_text(path)?;
+        let json: serde_json::Value = serde_json::from_str(&text).ok()?;
+        let id = match json.get("rootGameId")? {
+            serde_json::Value::String(id) => id.trim().to_owned(),
+            serde_json::Value::Number(id) => id.to_string(),
+            _ => return None,
+        };
+        valid_external_id(&id).then_some(id)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -344,5 +417,58 @@ mod tests {
         touch(&g, "steam_api.ini", "[Settings]\nAppId=2\n");
         let r = scan(tmp.path(), &g, None);
         assert!(r.found.is_empty() && r.unresolved.is_empty());
+    }
+
+    #[test]
+    fn universelan_marker_uses_goggame_info() {
+        let tmp = tempfile::tempdir().unwrap();
+        let g = tmp.path().join("Game");
+        touch(
+            &g,
+            "goggame-1207658924.info",
+            r#"{"gameId":"1207658924","rootGameId":"1207658924"}"#,
+        );
+        touch(
+            &g,
+            "bin/UniverseLAN.ini",
+            "[Settings]
+",
+        );
+        let file = touch(
+            &g,
+            "bin/UniverseLANData/Achievements.ini",
+            "[A]
+Unlocked=true
+",
+        );
+        let r = scan(tmp.path(), &g, None);
+        assert_eq!(r.found.len(), 1);
+        assert_eq!(r.found[0].source_id, "universelan_game");
+        assert_eq!(r.found[0].path, file);
+        let external = r.found[0].external.as_ref().unwrap();
+        assert_eq!(external.platform, crate::platform::Platform::Gog);
+        assert_eq!(external.id, "1207658924");
+    }
+
+    #[test]
+    fn universelan_marker_without_info_is_unresolved() {
+        let tmp = tempfile::tempdir().unwrap();
+        let g = tmp.path().join("Game");
+        touch(
+            &g,
+            "UniverseLAN.ini",
+            "[Settings]
+",
+        );
+        touch(
+            &g,
+            "UniverseLANData/Achievements.ini",
+            "[A]
+Unlocked=true
+",
+        );
+        let r = scan(tmp.path(), &g, None);
+        assert!(r.found.is_empty());
+        assert_eq!(r.unresolved.len(), 1);
     }
 }

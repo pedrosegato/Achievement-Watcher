@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 use super::{ParseError, epoch_time};
-use crate::model::Unlock;
+use crate::model::{Progress, Unlock};
 
 pub(crate) fn parse_goldberg(text: &str) -> Result<Vec<Unlock>, ParseError> {
     let root: Value =
@@ -30,7 +30,22 @@ fn read_entry(name: &str, entry: &Value) -> Option<Unlock> {
         .get("earned_time")
         .and_then(Value::as_i64)
         .and_then(epoch_time);
-    Some(Unlock::new(name, earned, time))
+    let mut unlock = Unlock::new(name, earned, time);
+    unlock.progress = match (
+        count(entry.get("progress")),
+        count(entry.get("max_progress")),
+    ) {
+        (Some(current), Some(max)) if max > 0 => Some(Progress { current, max }),
+        _ => None,
+    };
+    Some(unlock)
+}
+
+fn count(value: Option<&Value>) -> Option<u32> {
+    value
+        .and_then(Value::as_f64)
+        .filter(|n| n.is_finite() && *n >= 0.0 && *n <= f64::from(u32::MAX))
+        .map(|n| n as u32)
 }
 
 #[cfg(test)]
@@ -113,5 +128,21 @@ mod tests {
         assert!(parse_goldberg("5").unwrap().is_empty());
         assert!(parse_goldberg("{}").unwrap().is_empty());
         assert!(parse_goldberg("[]").unwrap().is_empty());
+    }
+
+    #[test]
+    fn reads_progress() {
+        let u = parse_goldberg(
+            r#"{"A":{"earned":false,"earned_time":0,"progress":3,"max_progress":10},"B":{"earned":false,"progress":2,"max_progress":0}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            u[0].progress,
+            Some(crate::model::Progress {
+                current: 3,
+                max: 10
+            })
+        );
+        assert_eq!(u[1].progress, None);
     }
 }

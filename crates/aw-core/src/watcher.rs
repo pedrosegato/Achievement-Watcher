@@ -11,6 +11,7 @@ use crate::discovery::Found;
 use crate::discovery::gamediscovery::Unresolved;
 use crate::discovery::running::KnownGame;
 use crate::engine::{CoreSettings, Engine, SyncOutcome, WatchTargets};
+use crate::platform::ExternalId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WatchEvent {
@@ -53,10 +54,12 @@ pub struct Snapshot {
     pub watched: Vec<PathBuf>,
     pub last_sync_at: Option<i64>,
     pub known_games: Vec<KnownGame>,
+    pub pending: Vec<ExternalId>,
 }
 
 enum Control {
     Fs,
+    Sync,
     Full,
     Settings(Box<CoreSettings>),
     Stop,
@@ -71,6 +74,10 @@ pub struct WatcherHandle {
 impl WatcherHandle {
     pub fn request_full_sync(&self) {
         let _ = self.control.send(Control::Full);
+    }
+
+    pub fn request_sync(&self) {
+        let _ = self.control.send(Control::Sync);
     }
 
     pub fn update_settings(&self, settings: CoreSettings) {
@@ -175,6 +182,10 @@ impl Worker {
                         None => (now, now + self.options.debounce),
                     });
                 }
+                Ok(Control::Sync) => {
+                    pending = None;
+                    self.sync(false, false);
+                }
                 Ok(Control::Full) => {
                     pending = None;
                     self.sync(true, true);
@@ -227,6 +238,7 @@ impl Worker {
             snapshot.watched.sort();
             snapshot.last_sync_at = Some(now);
             snapshot.known_games = self.engine.known_games().to_vec();
+            snapshot.pending = self.engine.pending().to_vec();
         }
         let _ = self.events.send(event);
         if report {
@@ -416,6 +428,33 @@ mod tests {
                 .contains(&tmp.path().join("PublicDocuments").join("OnlineFix"))
         );
         assert!(snapshot.last_sync_at.is_some());
+        handle.stop();
+    }
+
+    #[test]
+    fn request_sync_runs_a_quick_sync() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (tx, rx) = channel();
+        let options = WatchOptions {
+            tick: Duration::from_secs(3600),
+            ..WatchOptions::default()
+        };
+        let handle = start(engine(tmp.path()), tx, options);
+        wait_first_sync(&rx);
+        handle.request_sync();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let mut synced = false;
+        while let Some(left) = deadline.checked_duration_since(Instant::now()) {
+            match rx.recv_timeout(left) {
+                Ok(WatchEvent::Synced(_)) => {
+                    synced = true;
+                    break;
+                }
+                Ok(_) => {}
+                Err(_) => break,
+            }
+        }
+        assert!(synced);
         handle.stop();
     }
 }

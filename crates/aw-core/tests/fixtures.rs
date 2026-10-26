@@ -17,6 +17,9 @@ fn format_for_dir(dir: &str) -> Format {
         "tenoke" => Format::TenokeUserStats,
         "generic_ini" => Format::GenericIni,
         "razor1911" => Format::Razor1911,
+        "universelan" => Format::GenericIni,
+        "generic_json" => Format::GenericJson,
+        "rune_uplay" => Format::RuneCfg,
         other => panic!("unknown fixture dir {other}"),
     }
 }
