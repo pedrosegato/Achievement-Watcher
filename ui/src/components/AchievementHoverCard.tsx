@@ -50,7 +50,9 @@ function HoverDetails({
       <div className="flex items-start gap-2.5">
         <AchievementIcon src={achievement.iconUrl} rare={rare} size={40} />
         <div className="flex min-w-0 flex-col gap-px">
-          <p className="font-semibold text-[13px] leading-snug">{achievement.displayName}</p>
+          <p className="line-clamp-2 font-semibold text-[13px] leading-snug">
+            {achievement.displayName}
+          </p>
           <p className="line-clamp-2 text-[12px] text-muted leading-snug">
             {achievement.description}
           </p>

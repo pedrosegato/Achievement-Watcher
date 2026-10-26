@@ -41,7 +41,9 @@ Install it, forget about it: on first start it finds every game and achievement 
 
 ## Install
 
-Download `Achievement Watcher_<version>_x64-setup.exe` from the releases page and run it. It installs for the current user, no admin rights needed. Windows 10 22H2 or Windows 11.
+Download `Achievement.Watcher_<version>_x64-setup.exe` from the releases page and run it. It installs for the current user, no admin rights needed. Windows 10 22H2 or Windows 11.
+
+The installer is not code-signed, so Windows SmartScreen may show "Windows protected your PC" the first time. Click **More info** and then **Run anyway**. After that the app updates itself from new releases.
 
 Popups show over borderless and windowed games. Exclusive fullscreen hides any overlay that is not injected into the game.
 
@@ -59,7 +61,16 @@ The page receives each achievement through `window.api.onNotification(cb)` with 
 
 ## Releases and updates
 
-Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds a signed installer and a draft release with `latest.json`. Publishing the release makes it available to the in-app updater. The workflow needs the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+The app checks `releases/latest/download/latest.json` 30 seconds after it starts and once a day, and installs a newer signed release by itself when no game is running.
+
+Releases are built locally:
+
+1. Bump the version in `crates/aw-app/tauri.conf.json`, the three `Cargo.toml` files and `ui/package.json`, and merge it into `main`.
+2. Check out `main` and run `pnpm release`. It builds the installer at below-normal priority, signs it for the updater, writes `latest.json` and publishes the release with the GitHub CLI, tagged with the bare version (`3.0.1`).
+
+The updater key is read from `TAURI_SIGNING_PRIVATE_KEY`, or from `~/.tauri/achievement-watcher.key` when that is not set. `pnpm release --notes notes.md` uses your own release notes instead of GitHub's generated ones, and `pnpm release --dry-run` stops before publishing, leaving the files in `target/release/upload`.
+
+`.github/workflows/release.yml` builds the same files on GitHub Actions as a draft release, but only when started by hand from the Actions tab with the tag as input. It needs the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
 ## Build from source
 
@@ -81,7 +92,7 @@ cargo run -p aw-cli -- scan --games-root "C:\Games"
 cargo run -p aw-cli -- watch
 ```
 
-Checks: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `pnpm check`.
+Checks: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `pnpm check`. The same checks run on GitHub Actions only when the `ci` workflow is started by hand.
 
 ## Repository layout
 

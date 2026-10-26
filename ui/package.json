@@ -2,7 +2,7 @@
   "name": "aw-ui",
   "private": true,
   "license": "LGPL-3.0-only",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FfmpegStatus } from "../types/domain";
-import { ffmpegNote } from "./ffmpeg";
+import { ffmpegAction, ffmpegNote } from "./ffmpeg";
 
 function status(partial: Partial<FfmpegStatus>): FfmpegStatus {
   return {
@@ -45,5 +45,26 @@ describe("ffmpegNote", () => {
       key: "settings.ffmpegError",
       vars: { error: "timed out" },
     });
+  });
+});
+
+describe("ffmpegAction", () => {
+  it("asks for the status when video is turned on before it loads", () => {
+    expect(ffmpegAction(true, null)).toBe("fetch");
+  });
+
+  it("downloads when ffmpeg is missing and not on its way", () => {
+    expect(ffmpegAction(true, status({ available: false, path: null }))).toBe("download");
+  });
+
+  it("does nothing when ffmpeg is ready or already downloading", () => {
+    expect(ffmpegAction(true, status({}))).toBe("none");
+    expect(ffmpegAction(true, status({ available: false, downloading: true }))).toBe("none");
+  });
+
+  it("cancels a download when video is turned off", () => {
+    expect(ffmpegAction(false, status({ available: false, downloading: true }))).toBe("cancel");
+    expect(ffmpegAction(false, status({}))).toBe("none");
+    expect(ffmpegAction(false, null)).toBe("none");
   });
 });

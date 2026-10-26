@@ -10,6 +10,14 @@ interface Note {
 const BYTES_PER_MB = 1_000_000;
 const PERCENT = 100;
 
+export type FfmpegAction = "fetch" | "download" | "cancel" | "none";
+
+export function ffmpegAction(on: boolean, status: FfmpegStatus | null): FfmpegAction {
+  if (!on) return status?.downloading ? "cancel" : "none";
+  if (!status) return "fetch";
+  return !status.available && !status.downloading ? "download" : "none";
+}
+
 export function ffmpegNote(status: FfmpegStatus | null): Note | null {
   if (!status) return null;
   if (status.downloading && status.total) {
