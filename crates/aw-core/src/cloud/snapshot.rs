@@ -1,4 +1,7 @@
+use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
+use std::sync::{Mutex, OnceLock, PoisonError};
+use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
@@ -48,8 +51,6 @@ pub struct SnapshotMeta {
     pub session_ended_at: i64,
     pub parent: Option<String>,
     pub found_on_device: bool,
-    /// A copy of this PC's state saved just before the cloud overwrote it,
-    /// not progress someone chose to keep playing from.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub kept: bool,
     pub contents: Contents,
@@ -60,6 +61,8 @@ pub struct SnapshotMeta {
     pub local_app_id: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state_file: Option<StoredState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaces: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -77,6 +80,7 @@ pub struct NewSnapshot<'a> {
     pub now: i64,
     pub session_ended_at: i64,
     pub parent: Option<String>,
+    pub replaces: Option<String>,
     pub found_on_device: bool,
     pub kept: bool,
     pub local_app_id: u32,
@@ -126,7 +130,7 @@ fn build(new: &NewSnapshot, id: &str, tmp: &Path) -> CloudResult<SnapshotMeta> {
         }
         copy_file(&file.source, &target)?;
         if file_sha256(&target)? != file.sha256 {
-            return Err(CloudError::Incomplete(id.to_owned()));
+            return Err(CloudError::SaveChanged);
         }
         entries.push(FileEntry {
             category: file.category,
@@ -173,15 +177,42 @@ fn build(new: &NewSnapshot, id: &str, tmp: &Path) -> CloudResult<SnapshotMeta> {
         unlocked: state.map(|s| u32::try_from(s.unlocks.len()).unwrap_or(u32::MAX)),
         local_app_id: new.local_app_id,
         state_file,
+        replaces: new.replaces.clone(),
     };
     write_json_atomic(&tmp.join(SNAPSHOT_FILE), &meta)?;
     Ok(meta)
 }
 
 pub fn read_snapshot(dir: &Path, verify: Verify) -> SnapshotRead {
-    let Some(meta) = read_json::<SnapshotMeta>(&dir.join(SNAPSHOT_FILE)) else {
-        return SnapshotRead::Incomplete;
-    };
+    match read_json::<SnapshotMeta>(&dir.join(SNAPSHOT_FILE)) {
+        Some(meta) => check(dir, meta, verify),
+        None => SnapshotRead::Incomplete,
+    }
+}
+
+type Parsed = (SystemTime, u64, SnapshotMeta);
+
+fn parsed() -> &'static Mutex<HashMap<PathBuf, Parsed>> {
+    static PARSED: OnceLock<Mutex<HashMap<PathBuf, Parsed>>> = OnceLock::new();
+    PARSED.get_or_init(Mutex::default)
+}
+
+fn parsed_meta(dir: &Path) -> Option<SnapshotMeta> {
+    let json = dir.join(SNAPSHOT_FILE);
+    let stat = std::fs::metadata(&json).ok()?;
+    let stamp = (stat.modified().ok()?, stat.len());
+    let mut cache = parsed().lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some((modified, len, meta)) = cache.get(dir)
+        && (*modified, *len) == stamp
+    {
+        return Some(meta.clone());
+    }
+    let meta = read_json::<SnapshotMeta>(&json)?;
+    cache.insert(dir.to_path_buf(), (stamp.0, stamp.1, meta.clone()));
+    Some(meta)
+}
+
+fn check(dir: &Path, meta: SnapshotMeta, verify: Verify) -> SnapshotRead {
     if meta.format > FORMAT_VERSION {
         return SnapshotRead::Incomplete;
     }
@@ -248,9 +279,12 @@ pub fn list_snapshots(games: &[GamePaths]) -> Vec<(PathBuf, SnapshotMeta)> {
                 })
                 .collect::<Vec<_>>()
         })
-        .filter_map(|dir| match read_snapshot(&dir, Verify::Sizes) {
-            SnapshotRead::Ready(meta) => Some((dir, *meta)),
-            SnapshotRead::Incomplete => None,
+        .filter_map(|dir| {
+            let meta = parsed_meta(&dir)?;
+            match check(&dir, meta, Verify::Sizes) {
+                SnapshotRead::Ready(meta) => Some((dir, *meta)),
+                SnapshotRead::Incomplete => None,
+            }
         })
         .collect();
     found.sort_by(|(_, a), (_, b)| (a.session_ended_at, &a.id).cmp(&(b.session_ended_at, &b.id)));
@@ -289,10 +323,7 @@ mod tests {
             ..Default::default()
         };
         let game = GamePaths(dir.path().join("cloud").join("games").join("7 - G"));
-        let device = LocalDevice {
-            id: DeviceId("dev1".into()),
-            name: "Desktop".into(),
-        };
+        let device = LocalDevice::new(DeviceId("dev1".into()), "Desktop");
         Fixture {
             dir,
             ph,
@@ -348,6 +379,7 @@ mod tests {
             parent,
             found_on_device: false,
             kept: false,
+            replaces: None,
             local_app_id: 7,
             capture,
         })
@@ -466,6 +498,7 @@ mod tests {
             parent: None,
             found_on_device: false,
             kept: false,
+            replaces: None,
             local_app_id: 7,
             capture: &cap,
         });
@@ -474,6 +507,29 @@ mod tests {
             .map(|entries| entries.flatten().collect())
             .unwrap_or_default();
         assert!(left.is_empty());
+    }
+
+    #[test]
+    fn a_save_changed_while_copying_is_reported_as_changed() {
+        let f = fixture();
+        let path = save_file(&f, "a.sav", "first");
+        let cap = capture(&roots(), &f.ph, None, &HashCache::default()).unwrap();
+        std::fs::write(&path, "second").unwrap();
+        let result = write_snapshot(&NewSnapshot {
+            game: &f.game,
+            game_key: "7",
+            game_name: "G",
+            device: &f.device,
+            now: 1,
+            session_ended_at: 1,
+            parent: None,
+            found_on_device: false,
+            kept: false,
+            replaces: None,
+            local_app_id: 7,
+            capture: &cap,
+        });
+        assert!(matches!(result, Err(CloudError::SaveChanged)), "{result:?}");
     }
 
     #[test]
@@ -500,5 +556,39 @@ mod tests {
         assert_eq!(load_state(&dir_of(&f, &meta)).unwrap(), None);
         assert!(!meta.contents.state);
         assert_eq!(meta.playtime_seconds, None);
+    }
+
+    #[test]
+    fn listing_reuses_a_parsed_snapshot_until_its_json_changes() {
+        let f = fixture();
+        save_file(&f, "a.sav", "x");
+        let cap = capture(&roots(), &f.ph, None, &HashCache::default()).unwrap();
+        let meta = write(&f, &cap, 100, None);
+        let dir = dir_of(&f, &meta);
+        let games = std::slice::from_ref(&f.game);
+        assert_eq!(list_snapshots(games).len(), 1);
+
+        let json = dir.join(SNAPSHOT_FILE);
+        let stamp = std::fs::metadata(&json).unwrap().modified().unwrap();
+        let length = std::fs::metadata(&json).unwrap().len() as usize;
+        std::fs::write(&json, "#".repeat(length)).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&json)
+            .unwrap()
+            .set_modified(stamp)
+            .unwrap();
+        assert_eq!(list_snapshots(games).len(), 1, "parsed copy reused");
+
+        std::fs::remove_file(dir.join(&meta.files[0].stored)).unwrap();
+        assert!(list_snapshots(games).is_empty(), "files are still checked");
+
+        std::fs::File::options()
+            .write(true)
+            .open(&json)
+            .unwrap()
+            .set_modified(stamp + std::time::Duration::from_secs(5))
+            .unwrap();
+        assert!(list_snapshots(games).is_empty());
     }
 }

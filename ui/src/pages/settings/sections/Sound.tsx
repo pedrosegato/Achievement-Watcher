@@ -1,9 +1,12 @@
 import { RANGES } from "../../../constants";
 import { useI18n } from "../../../i18n/useI18n";
 import type { SectionProps } from "../../../types/ui";
-import { FolderLink, NumberField, PercentSlider } from "../controls";
-import { SettingBlock, SettingRow, SwitchRow } from "../SettingRow";
+import { FolderLink } from "../controls/FolderLink";
+import { PercentSlider } from "../controls/PercentSlider";
+import { SettingBlock } from "../SettingBlock";
+import { SettingRow } from "../SettingRow";
 import { SoundPacks } from "../SoundPacks";
+import { SwitchRow } from "../SwitchRow";
 
 export function Sound({ settings, update }: SectionProps) {
   const { t } = useI18n();
@@ -20,15 +23,6 @@ export function Sound({ settings, update }: SectionProps) {
           value={settings.soundVolume}
           range={RANGES.volume}
           onCommit={(value) => void update("soundVolume", value)}
-        />
-      </SettingRow>
-      <SettingRow label={t("settings.rareBelow")}>
-        <NumberField
-          label={t("settings.rareBelow")}
-          value={settings.rareThreshold}
-          range={RANGES.rareThreshold}
-          suffix={t("settings.ofPlayers")}
-          onCommit={(value) => void update("rareThreshold", value)}
         />
       </SettingRow>
       <SettingBlock label={t("settings.soundPack")}>

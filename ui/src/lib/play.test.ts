@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlayState } from "../types/domain";
-import { launchLine, playButtonView } from "./play";
+import { closingView, launchLine, playButtonView, playErrorKey, playMoment } from "./play";
 
 const view = (state: PlayState) => playButtonView(state);
 
@@ -12,6 +12,7 @@ describe("playButtonView", () => {
       disabled: false,
       action: "play",
       stuck: false,
+      phase: "ready",
     });
   });
 
@@ -30,6 +31,7 @@ describe("playButtonView", () => {
       disabled: true,
       action: "none",
       stuck: false,
+      phase: "pulling",
     });
     expect(view({ type: "syncing", stuck: true }).stuck).toBe(true);
   });
@@ -52,7 +54,7 @@ describe("playButtonView", () => {
     });
   });
 
-  it("shows syncing while the save is sent after closing", () => {
+  it("syncs again after closing", () => {
     expect(view({ type: "exiting" })).toMatchObject({
       labelKey: "play.syncing",
       busy: true,
@@ -67,6 +69,14 @@ describe("playButtonView", () => {
       disabled: false,
       action: "play",
     });
+  });
+
+  it("names a motion phase for every state", () => {
+    expect(view({ type: "idle", needsExe: true }).phase).toBe("pickExe");
+    expect(view({ type: "launching" }).phase).toBe("launching");
+    expect(view({ type: "running" }).phase).toBe("running");
+    expect(view({ type: "exiting" }).phase).toBe("pushing");
+    expect(view({ type: "failed", reason: "launchFailed" }).phase).toBe("ready");
   });
 
   it("stays ready to play while the open elsewhere warning is shown", () => {
@@ -96,5 +106,57 @@ describe("launchLine", () => {
       key: "play.menu.none",
       name: "",
     });
+  });
+});
+
+describe("playMoment", () => {
+  it("rumbles when the game starts running", () => {
+    expect(playMoment("launching", "running")).toBe("rumble");
+    expect(playMoment("pulling", "running")).toBe("rumble");
+  });
+
+  it("celebrates only a finished upload after closing", () => {
+    expect(playMoment("pushing", "ready")).toBe("synced");
+    expect(playMoment("pulling", "ready")).toBeNull();
+    expect(playMoment("running", "pushing")).toBeNull();
+  });
+
+  it("stays quiet on the first render and on repeats", () => {
+    expect(playMoment(undefined, "running")).toBeNull();
+    expect(playMoment("running", "running")).toBeNull();
+  });
+});
+
+describe("closingView", () => {
+  it("is a busy closing step right after stop is confirmed", () => {
+    expect(closingView()).toEqual({
+      labelKey: "play.closing",
+      busy: true,
+      disabled: true,
+      action: "none",
+      stuck: false,
+      phase: "closing",
+    });
+  });
+
+  it("does not rumble or celebrate around closing", () => {
+    expect(playMoment("running", "closing")).toBeNull();
+    expect(playMoment("closing", "pushing")).toBeNull();
+  });
+});
+
+describe("playErrorKey", () => {
+  it("names the known failures", () => {
+    expect(playErrorKey("launchUnconfirmed", "play.failed.generic")).toBe(
+      "play.failed.launchUnconfirmed",
+    );
+    expect(playErrorKey("notAnExe", "play.failed.generic")).toBe("play.error.notAnExe");
+  });
+
+  it("falls back to the action that failed instead of blaming the launch", () => {
+    expect(playErrorKey("Access is denied. (os error 5)", "play.failed.stopFailed")).toBe(
+      "play.failed.stopFailed",
+    );
+    expect(playErrorKey("boom", "play.failed.generic")).toBe("play.failed.generic");
   });
 });

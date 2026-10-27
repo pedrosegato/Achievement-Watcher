@@ -5,10 +5,13 @@ import { useI18n } from "../../../i18n/useI18n";
 import { effectivePreset } from "../../../lib/presets";
 import { queries } from "../../../lib/queries";
 import type { SectionProps } from "../../../types/ui";
-import { FolderLink, PercentSlider } from "../controls";
+import { FolderLink } from "../controls/FolderLink";
+import { NumberField } from "../controls/NumberField";
+import { PercentSlider } from "../controls/PercentSlider";
 import { NotificationPreview } from "../NotificationPreview";
 import { PresetPicker } from "../PresetPicker";
-import { SettingRow, SwitchRow } from "../SettingRow";
+import { SettingRow } from "../SettingRow";
+import { SwitchRow } from "../SwitchRow";
 
 export function Notifications({ settings, update }: SectionProps) {
   const { t } = useI18n();
@@ -38,6 +41,15 @@ export function Notifications({ settings, update }: SectionProps) {
           value={settings.scale}
           range={RANGES.scale}
           onCommit={(value) => void update("scale", value)}
+        />
+      </SettingRow>
+      <SettingRow label={t("settings.rareBelow")}>
+        <NumberField
+          label={t("settings.rareBelow")}
+          value={settings.rareThreshold}
+          range={RANGES.rareThreshold}
+          suffix={t("settings.ofPlayers")}
+          onCommit={(value) => void update("rareThreshold", value)}
         />
       </SettingRow>
       <SwitchRow

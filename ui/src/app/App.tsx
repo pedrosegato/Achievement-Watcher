@@ -1,10 +1,7 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { EVENTS } from "../constants";
+import { useLiveQueries } from "../hooks/useLiveQueries";
 import { useScan } from "../hooks/useScan";
-import { useTauriEvent } from "../hooks/useTauriEvent";
 import { cn } from "../lib/cn";
-import { invalidateGames } from "../lib/queries";
 import { GamePage } from "../pages/game/GamePage";
 import { LibraryPage } from "../pages/library/LibraryPage";
 import { SettingsDialog } from "../pages/settings/SettingsDialog";
@@ -20,8 +17,7 @@ export function App() {
   };
   const [query, setQuery] = useState("");
   const { scanning, start } = useScan();
-  const queryClient = useQueryClient();
-  useTauriEvent(EVENTS.gamesChanged, () => void invalidateGames(queryClient));
+  useLiveQueries();
 
   return (
     <div className="flex h-screen flex-col">

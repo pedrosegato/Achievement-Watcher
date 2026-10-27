@@ -47,6 +47,7 @@
   --stop: #1a6fbf;
   --stop-hover: #155c9f;
   --on-accent: #ffffff;
+  --hover: color-mix(in oklab, var(--text) 9%, transparent);
 }
 
 :root[data-theme="light"] {

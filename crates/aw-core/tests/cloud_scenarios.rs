@@ -36,10 +36,7 @@ impl Pc {
         Pc {
             root: tempfile::tempdir().unwrap(),
             store: Store::in_memory().unwrap(),
-            device: LocalDevice {
-                id: DeviceId(id.into()),
-                name: name.into(),
-            },
+            device: LocalDevice::new(DeviceId(id.into()), name),
             cache: HashCache::default(),
             kind,
             seen: std::cell::RefCell::new(Vec::new()),
@@ -335,8 +332,8 @@ fn crashed_session_is_pushed_on_next_start_and_stale_lock_is_ignored() {
     a.write_save("1", "played then crashed");
 
     let games = cloud.game_dirs(&CloudKey::Steam(APP));
-    assert_eq!(foreign_locks(&games, &b.device.id, 250).len(), 1);
-    assert!(foreign_locks(&games, &b.device.id, 200 + LOCK_STALE_SECS + 1).is_empty());
+    assert_eq!(foreign_locks(&games, &b.device, 250).len(), 1);
+    assert!(foreign_locks(&games, &b.device, 200 + LOCK_STALE_SECS + 1).is_empty());
 
     assert!(own_lock(&game, &a.device.id).is_some());
     assert!(matches!(
@@ -380,16 +377,21 @@ fn deleting_any_snapshot_folder_never_breaks_sync() {
         a.reconcile(&cloud, 100 * (i as i64 + 1));
     }
     let snaps = snapshots(&cloud);
-    std::fs::remove_dir_all(&snaps[1].0).unwrap();
+    assert_eq!(
+        snaps.len(),
+        2,
+        "one line keeps its latest version and the one before"
+    );
+    std::fs::remove_dir_all(&snaps[0].0).unwrap();
     assert!(matches!(
         b.reconcile(&cloud, 1000),
         SyncEvent::Restored { .. }
     ));
     assert_eq!(b.read_save("1"), "v3");
 
-    std::fs::remove_dir_all(&snaps[2].0).unwrap();
+    std::fs::remove_dir_all(&snaps[1].0).unwrap();
     let event = b.reconcile(&cloud, 5000);
-    assert!(matches!(event, SyncEvent::Restored { .. }), "{event:?}");
+    assert!(matches!(event, SyncEvent::Pushed { .. }), "{event:?}");
     let event = a.reconcile(&cloud, 5100);
     assert!(!matches!(event, SyncEvent::Waiting), "{event:?}");
     let latest = a.seen.borrow().last().cloned().unwrap();
@@ -999,4 +1001,48 @@ fn cancelled_pull_leaves_the_pc_as_it_was_and_retries_later() {
         SyncEvent::Restored { .. }
     ));
     assert_eq!(b.read_save("1111"), "v2");
+}
+
+fn unlock_names(pc: &Pc) -> Vec<String> {
+    pc.store
+        .game_state(APP)
+        .unwrap()
+        .unlocks
+        .into_iter()
+        .map(|u| u.api_name)
+        .collect()
+}
+
+#[test]
+fn cracked_pcs_follow_the_latest_cracked_version_while_an_original_save_is_current() {
+    let (_dir, cloud) = cloud();
+    let steam = Pc::new("s", "Steam", GameKind::SteamOriginal);
+    let one = Pc::new("one", "One", GameKind::Emulator);
+    let two = Pc::new("two", "Two", GameKind::Emulator);
+    two.write_save("0110", "two v1");
+    put(&two.emulator_file(), r#"{"T":{}}"#);
+    two.store.record_unlock(APP, "T", 1, 1, "gse").unwrap();
+    two.reconcile(&cloud, 100);
+    steam.reconcile(&cloud, 200);
+    steam.write_save("0110", "steam v1");
+    let SyncEvent::Pushed { snapshot: original } = steam.reconcile(&cloud, 300) else {
+        panic!("the original PC should push its save");
+    };
+    two.reconcile(&cloud, 400);
+    one.reconcile(&cloud, 500);
+    put(&one.emulator_file(), r#"{"T":{},"O":{}}"#);
+    one.store.record_unlock(APP, "O", 600, 600, "gse").unwrap();
+    one.write_save("0110", "one v1");
+    one.reconcile(&cloud, 700);
+    set_principal(
+        &steam.ctx(&cloud, 800),
+        &steam.target(),
+        &original,
+        HeadReason::Manual,
+    )
+    .unwrap();
+    one.reconcile(&cloud, 900);
+    two.reconcile(&cloud, 1000);
+    assert_eq!(unlock_names(&one), vec!["O", "T"]);
+    assert_eq!(unlock_names(&two), unlock_names(&one));
 }

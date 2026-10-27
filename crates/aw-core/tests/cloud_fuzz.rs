@@ -1,13 +1,4 @@
-//! Randomized multi-PC simulation of cloud save sync.
-//!
-//! Each PC has its own copy of the cloud folder; a shared "server" folder stands in
-//! for OneDrive/Google Drive. Uploads and downloads move a random subset of files,
-//! so snapshots, heads and data files arrive late and out of order, like a real
-//! sync client. PCs have skewed clocks and can be formatted.
-//!
-//! Seeds: `CLOUD_FUZZ_SEEDS` (default 40), steps per seed: `CLOUD_FUZZ_STEPS` (default 40).
-
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 use aw_core::cloud::capture::{HashCache, capture};
@@ -114,7 +105,6 @@ impl Pc {
         (!local.files.is_empty()).then_some(local.digest)
     }
 
-    /// Every save file's contents, wherever the account folder.
     fn save_contents(&self) -> BTreeSet<String> {
         walk(&self.saves_dir())
             .iter()
@@ -122,7 +112,6 @@ impl Pc {
             .collect()
     }
 
-    /// The save the game would load: the one in this PC's own account folder.
     fn visible_save(&self) -> Option<String> {
         std::fs::read_to_string(self.saves_dir().join(&self.account).join("DS30000.sl2")).ok()
     }
@@ -173,8 +162,6 @@ fn relative_files(dir: &Path) -> BTreeSet<PathBuf> {
         .collect()
 }
 
-/// heads/<device>.json, locks/<device>.json, settings/<device>.json and
-/// devices/<device>.json are rewritten by their owner; everything else is immutable.
 fn owner(rel: &Path) -> Option<String> {
     let parent = rel.parent()?.file_name()?.to_str()?;
     if !matches!(parent, "heads" | "locks" | "settings" | "devices") {
@@ -201,6 +188,7 @@ struct Sim {
     now: i64,
     history: Vec<String>,
     seen: Vec<(String, Fingerprint)>,
+    observed: HashMap<String, (Option<String>, Fingerprint)>,
     mirror_files: Vec<BTreeSet<PathBuf>>,
     same_account: bool,
 }
@@ -243,6 +231,7 @@ impl Sim {
             now: 1_000_000,
             history: Vec::new(),
             seen: Vec::new(),
+            observed: HashMap::new(),
             mirror_files,
             same_account,
         };
@@ -411,7 +400,6 @@ impl Sim {
         self.download(i, 100);
     }
 
-    /// A file this PC downloaded arrives with the right size but wrong bytes.
     fn corrupt_download(&mut self, i: usize) {
         let mirror = self.pcs[i].mirror.clone();
         let downloaded: Vec<PathBuf> = relative_files(&mirror)
@@ -436,12 +424,44 @@ impl Sim {
         ));
     }
 
+    fn observe(&mut self) {
+        let roots: Vec<PathBuf> = std::iter::once(self.server.clone())
+            .chain(self.pcs.iter().map(|pc| pc.mirror.clone()))
+            .collect();
+        for root in roots {
+            let layout = CloudLayout::new(root);
+            for (dir, meta) in list_snapshots(&layout.game_dirs(&CloudKey::Steam(APP))) {
+                if self.observed.contains_key(&meta.id) {
+                    continue;
+                }
+                if let Some(print) = try_fingerprint(&dir, &meta) {
+                    self.observed
+                        .insert(meta.id.clone(), (meta.replaces.clone(), print));
+                }
+            }
+        }
+    }
+
+    fn pruned_by_design(&self, id_prefix: &str) -> bool {
+        self.observed.iter().any(|(replacer, (replaced, _))| {
+            replaced
+                .as_deref()
+                .is_some_and(|x| x.starts_with(id_prefix))
+                && self
+                    .observed
+                    .values()
+                    .any(|(next, _)| next.as_deref() == Some(replacer.as_str()))
+        })
+    }
+
     fn check_mirrors_only_grow(&mut self) {
+        self.observe();
         for i in 0..self.pcs.len() {
             let now = relative_files(&self.pcs[i].mirror);
             let lost: Vec<_> = self.mirror_files[i]
                 .difference(&now)
                 .filter(|rel| !rel.components().any(|c| c.as_os_str() == "locks"))
+                .filter(|rel| !snapshot_short_id(rel).is_some_and(|id| self.pruned_by_design(&id)))
                 .cloned()
                 .collect();
             if !lost.is_empty() {
@@ -525,9 +545,6 @@ impl Sim {
     }
 
     fn check_converged(&self) {
-        // With different account ids per PC a restore can only guess which
-        // account folder the game reads (known limitation), so only the
-        // safety checks run there.
         if !self.same_account {
             return;
         }
@@ -569,12 +586,19 @@ impl Sim {
             .map(|(dir, meta)| snapshot_fingerprint(dir, meta))
             .collect();
         for (label, print) in &self.seen {
-            let saves_kept = print
-                .saves
-                .iter()
-                .all(|save| prints.iter().any(|snap| snap.saves.contains(save)));
+            let pruned = |keeps: &dyn Fn(&Fingerprint) -> bool| {
+                self.observed
+                    .iter()
+                    .any(|(id, (_, kept))| keeps(kept) && self.pruned_by_design(id))
+            };
+            let saves_kept = print.saves.iter().all(|save| {
+                prints.iter().any(|snap| snap.saves.contains(save))
+                    || pruned(&|kept| kept.saves.contains(save))
+            });
             let unlocks_kept = print.unlocks.as_ref().is_none_or(|u| {
-                u.is_empty() || prints.iter().any(|snap| snap.unlocks.as_ref() == Some(u))
+                u.is_empty()
+                    || prints.iter().any(|snap| snap.unlocks.as_ref() == Some(u))
+                    || pruned(&|kept| kept.unlocks.as_ref() == Some(u))
             });
             let found = saves_kept && unlocks_kept;
             if !found {
@@ -590,6 +614,29 @@ impl Sim {
 struct Fingerprint {
     saves: BTreeSet<String>,
     unlocks: Option<BTreeSet<String>>,
+}
+
+fn snapshot_short_id(rel: &Path) -> Option<String> {
+    let parts: Vec<String> = rel
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect();
+    let at = parts.iter().position(|part| part == "snapshots")?;
+    let folder = parts.get(at + 1)?;
+    Some(folder.rsplit('_').next()?.to_owned())
+}
+
+fn try_fingerprint(dir: &Path, meta: &SnapshotMeta) -> Option<Fingerprint> {
+    let saves = meta
+        .files
+        .iter()
+        .filter(|f| f.category == Category::Save)
+        .map(|f| std::fs::read_to_string(dir.join(&f.stored)).ok())
+        .collect::<Option<BTreeSet<String>>>()?;
+    let unlocks = load_state(dir)
+        .ok()?
+        .map(|state| state.unlocks.into_iter().map(|u| u.api_name).collect());
+    Some(Fingerprint { saves, unlocks })
 }
 
 fn snapshot_fingerprint(dir: &Path, meta: &SnapshotMeta) -> Fingerprint {
@@ -617,10 +664,7 @@ fn new_pc(
     let mirror = dir.path().join(format!("{name}-g{generation}-cloud"));
     std::fs::create_dir_all(&mirror).unwrap();
     Pc {
-        device: LocalDevice {
-            id: DeviceId(format!("{name}g{generation}")),
-            name: name.clone(),
-        },
+        device: LocalDevice::new(DeviceId(format!("{name}g{generation}")), name.clone()),
         name,
         generation,
         root: tempfile::tempdir().unwrap(),

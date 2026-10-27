@@ -22,8 +22,6 @@ pub fn is_helper_exe(path: &Path) -> bool {
         || HELPER_WORDS.iter().any(|word| name.contains(word))
 }
 
-/// The most likely game executable: the largest `.exe` up to three folders
-/// deep that is not an installer, crash handler or redistributable.
 pub fn suggest_exe(dir: &Path) -> Option<PathBuf> {
     let mut best: Option<(u64, usize, PathBuf)> = None;
     let mut pending = vec![(dir.to_path_buf(), 0)];

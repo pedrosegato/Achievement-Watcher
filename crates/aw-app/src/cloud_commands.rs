@@ -5,6 +5,7 @@ use aw_core::cloud::device::DeviceRecord;
 use aw_core::cloud::heads::{HeadReason, principal, read_heads};
 use aw_core::cloud::key::CloudKey;
 use aw_core::cloud::layout::write_json_atomic;
+use aw_core::cloud::lineage::history;
 use aw_core::cloud::locate::{Category, Located, SaveRoot, expand};
 use aw_core::cloud::lock::foreign_locks;
 use aw_core::cloud::portable::{Placeholders, PortablePath};
@@ -18,6 +19,7 @@ use tauri::{AppHandle, State};
 
 use crate::app::AppState;
 use crate::cloud::{CloudJob, cloud_layout, game_target, inventory, set_game_pref};
+use crate::cloud_status::{Current, StatusInput, SyncStatus, sync_status};
 
 const APP_FOLDER: &str = "AchievementWatcher";
 const MAX_DEVICE_NAME: usize = 40;
@@ -25,7 +27,8 @@ const OVERSIZE_BYTES: u64 = 500 * 1024 * 1024;
 const ENV_FOLDERS: [&str; 3] = ["OneDrive", "OneDriveConsumer", "OneDriveCommercial"];
 const PROFILE_FOLDERS: [&str; 3] = ["Dropbox", "My Drive", "Meu Drive"];
 const DRIVE_FOLDERS: [&str; 2] = ["G:\\My Drive", "G:\\Meu Drive"];
-const UNDOABLE: [HeadReason; 4] = [
+const UNDOABLE: [HeadReason; 5] = [
+    HeadReason::Push,
     HeadReason::Restore,
     HeadReason::Branch,
     HeadReason::Manual,
@@ -73,6 +76,7 @@ pub struct SnapshotView {
     pub playtime_seconds: Option<i64>,
     pub unlocked: Option<u32>,
     pub is_principal: bool,
+    pub mine: bool,
     pub found_on_device: bool,
 }
 
@@ -90,6 +94,7 @@ pub struct CloudGameView {
     pub open_elsewhere: Option<String>,
     pub last_action: Option<LastAction>,
     pub snapshots: Vec<SnapshotView>,
+    pub status: SyncStatus,
 }
 
 pub fn suggestions(env: impl Fn(&str) -> Option<String>, fixed: &[PathBuf]) -> Vec<String> {
@@ -158,9 +163,7 @@ pub async fn cloud_overview(state: State<'_, AppState>) -> Result<CloudOverview,
         .clone();
     let fixed: Vec<PathBuf> = DRIVE_FOLDERS.iter().map(PathBuf::from).collect();
     let mut games = Vec::new();
-    let mut total_bytes = 0;
     if let Some(layout) = layout.as_ref().filter(|l| l.exists()) {
-        total_bytes = folder_size(layout.root());
         for (key, dirs) in layout.games() {
             let name = dirs
                 .first()
@@ -181,6 +184,7 @@ pub async fn cloud_overview(state: State<'_, AppState>) -> Result<CloudOverview,
         }
         games.sort_by_key(|game| std::cmp::Reverse(game.bytes));
     }
+    let total_bytes = games.iter().map(|game| game.bytes).sum();
     Ok(CloudOverview {
         folder: settings
             .cloud_folder
@@ -206,6 +210,9 @@ pub fn set_cloud_folder(
         None => None,
         Some(text) => {
             let path = PathBuf::from(text);
+            if !path.is_absolute() {
+                return Err("folderMissing".into());
+            }
             if !path.is_dir() {
                 let parent_exists = path.parent().is_some_and(Path::is_dir);
                 if !parent_exists {
@@ -261,6 +268,7 @@ pub async fn cloud_game(state: State<'_, AppState>, app_id: u32) -> Result<Cloud
             open_elsewhere: None,
             last_action: None,
             snapshots: Vec::new(),
+            status: SyncStatus::Idle,
         });
     };
     let target = &info.target;
@@ -296,6 +304,7 @@ pub async fn cloud_game(state: State<'_, AppState>, app_id: u32) -> Result<Cloud
         open_elsewhere: None,
         last_action: None,
         snapshots: Vec::new(),
+        status: SyncStatus::Idle,
     };
     let Some(layout) = cloud_layout(&state.settings_snapshot()).filter(|l| l.exists()) else {
         return Ok(view);
@@ -304,7 +313,6 @@ pub async fn cloud_game(state: State<'_, AppState>, app_id: u32) -> Result<Cloud
         .device
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
-        .id
         .clone();
     let games = layout.game_dirs(&target.key);
     let snapshots = list_snapshots(&games);
@@ -321,17 +329,33 @@ pub async fn cloud_game(state: State<'_, AppState>, app_id: u32) -> Result<Cloud
         .first()
         .map(|lock| lock.device_name.clone());
     view.last_action = last_choice(&layout, &target.key).map(|choice| LastAction {
-        can_undo: choice.device_id == own.0
+        can_undo: own.is_mine(&choice.device_id)
             && choice.previous.is_some()
             && UNDOABLE.contains(&choice.reason),
         reason: choice.reason,
         at: choice.chosen_at,
         device_name: choice.device_name,
     });
-    view.snapshots = metas
+    let key = target.key.as_folder_key();
+    let base = state.store().cloud_base(&key).ok().flatten();
+    let current_meta = metas.iter().find(|meta| Some(&meta.id) == current.as_ref());
+    view.status = sync_status(&StatusInput {
+        activity: &state.cloud.activity_of(&key),
+        running: state.running().contains_key(&app_id),
+        current: current_meta.map(|meta| Current {
+            id: &meta.id,
+            device_id: &meta.device_id,
+            device_name: &meta.device_name,
+            created_at: meta.created_at,
+        }),
+        base: base.as_ref().map(|b| (b.snapshot_id.as_str(), b.synced_at)),
+        own: &own,
+    });
+    view.snapshots = history(&metas, current.as_deref())
         .into_iter()
         .map(|meta| SnapshotView {
             is_principal: Some(&meta.id) == current.as_ref(),
+            mine: own.is_mine(&meta.device_id),
             id: meta.id,
             parent: meta.parent,
             created_at: meta.created_at,
@@ -403,6 +427,11 @@ pub fn set_game_save_path(
 #[tauri::command]
 pub fn cloud_undo(state: State<'_, AppState>, app_id: u32) {
     state.cloud.send(CloudJob::Undo(app_id));
+}
+
+#[tauri::command]
+pub fn cloud_sync_now(state: State<'_, AppState>, app_id: u32) {
+    state.cloud.send(CloudJob::SyncGame(app_id));
 }
 
 #[tauri::command]

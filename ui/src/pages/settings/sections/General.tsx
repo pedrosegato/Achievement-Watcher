@@ -15,7 +15,8 @@ import { queries } from "../../../lib/queries";
 import type { Theme } from "../../../types/domain";
 import type { SectionProps } from "../../../types/ui";
 import { HotkeyField } from "../HotkeyField";
-import { SettingRow, SwitchRow } from "../SettingRow";
+import { SettingRow } from "../SettingRow";
+import { SwitchRow } from "../SwitchRow";
 
 const SAME_AS_WINDOWS = "windows";
 

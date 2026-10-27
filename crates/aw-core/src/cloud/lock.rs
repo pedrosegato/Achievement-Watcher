@@ -2,7 +2,7 @@ use std::io;
 
 use serde::{Deserialize, Serialize};
 
-use crate::cloud::device::DeviceId;
+use crate::cloud::device::{DeviceId, LocalDevice};
 use crate::cloud::layout::{GamePaths, read_json, write_json_atomic};
 
 pub const LOCK_RENEW_SECS: i64 = 120;
@@ -33,7 +33,7 @@ pub fn own_lock(game: &GamePaths, device: &DeviceId) -> Option<LockRecord> {
     read_json(&game.lock_file(device))
 }
 
-pub fn foreign_locks(games: &[GamePaths], own: &DeviceId, now: i64) -> Vec<LockRecord> {
+pub fn foreign_locks(games: &[GamePaths], own: &LocalDevice, now: i64) -> Vec<LockRecord> {
     let mut locks: Vec<LockRecord> = games
         .iter()
         .flat_map(|game| {
@@ -46,7 +46,7 @@ pub fn foreign_locks(games: &[GamePaths], own: &DeviceId, now: i64) -> Vec<LockR
                 .collect::<Vec<_>>()
         })
         .filter_map(|path| read_json::<LockRecord>(&path))
-        .filter(|lock| lock.device_id != own.0 && now - lock.renewed_at <= LOCK_STALE_SECS)
+        .filter(|lock| !own.is_mine(&lock.device_id) && now - lock.renewed_at <= LOCK_STALE_SECS)
         .collect();
     locks.sort_by(|a, b| a.device_id.cmp(&b.device_id));
     locks.dedup_by(|a, b| a.device_id == b.device_id);
@@ -71,9 +71,11 @@ mod tests {
     fn stale_foreign_lock_is_ignored_and_own_lock_is_excluded() {
         let dir = tempfile::tempdir().unwrap();
         let game = GamePaths(dir.path().to_path_buf());
-        let own = DeviceId("me".into());
+        let mut own = LocalDevice::new(DeviceId("me".into()), "Me");
+        own.former_ids.push(DeviceId("me-before".into()));
         let now = 10_000;
-        write_lock(&game, &own, &record("me", now)).unwrap();
+        write_lock(&game, &own.id, &record("me", now)).unwrap();
+        write_lock(&game, &own.former_ids[0], &record("me-before", now)).unwrap();
         write_lock(
             &game,
             &DeviceId("fresh".into()),

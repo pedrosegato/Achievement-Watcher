@@ -44,3 +44,64 @@ pub fn accent_color_dword() -> Option<u32> {
 pub fn apps_use_light_theme() -> Option<bool> {
     None
 }
+
+#[cfg(windows)]
+pub(crate) fn registry_string(
+    hkey: windows::Win32::System::Registry::HKEY,
+    subkey: windows::core::PCWSTR,
+    value: windows::core::PCWSTR,
+) -> Option<String> {
+    use windows::Win32::System::Registry::{RRF_RT_REG_SZ, RegGetValueW};
+
+    let mut size: u32 = 0;
+    // SAFETY: valid constant strings, size query with no data buffer.
+    let status = unsafe {
+        RegGetValueW(
+            hkey,
+            subkey,
+            value,
+            RRF_RT_REG_SZ,
+            None,
+            None,
+            Some(&mut size),
+        )
+    };
+    if status.is_err() || size < 2 {
+        return None;
+    }
+    let mut buffer = vec![0u16; (size as usize).div_ceil(2)];
+    // SAFETY: `buffer` holds `size` bytes and outlives the call.
+    let status = unsafe {
+        RegGetValueW(
+            hkey,
+            subkey,
+            value,
+            RRF_RT_REG_SZ,
+            None,
+            Some(buffer.as_mut_ptr().cast()),
+            Some(&mut size),
+        )
+    };
+    if status.is_err() {
+        return None;
+    }
+    let len = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
+    let text = String::from_utf16_lossy(&buffer[..len]);
+    (!text.trim().is_empty()).then_some(text)
+}
+
+#[cfg(windows)]
+pub fn machine_guid() -> Option<String> {
+    use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
+    use windows::core::w;
+    registry_string(
+        HKEY_LOCAL_MACHINE,
+        w!(r"SOFTWARE\Microsoft\Cryptography"),
+        w!("MachineGuid"),
+    )
+}
+
+#[cfg(not(windows))]
+pub fn machine_guid() -> Option<String> {
+    None
+}

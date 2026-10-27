@@ -55,6 +55,7 @@ const COMMANDS = {
   setGameSavePath: "set_game_save_path",
   cloudUndo: "cloud_undo",
   cloudSetPrincipal: "cloud_set_principal",
+  cloudSyncNow: "cloud_sync_now",
   playState: "play_state",
   playGame: "play_game",
   playAnyway: "play_anyway",
@@ -102,6 +103,7 @@ export const api = {
   setGameSavePath: (appId: number, path: string | null) =>
     invoke<void>(COMMANDS.setGameSavePath, { appId, path }),
   cloudUndo: (appId: number) => invoke<void>(COMMANDS.cloudUndo, { appId }),
+  cloudSyncNow: (appId: number) => invoke<void>(COMMANDS.cloudSyncNow, { appId }),
   cloudSetPrincipal: (appId: number, snapshotId: string) =>
     invoke<void>(COMMANDS.cloudSetPrincipal, { appId, snapshotId }),
   playState: (appId: number) => invoke<PlayState>(COMMANDS.playState, { appId }),

@@ -34,3 +34,9 @@ export interface SectionProps {
   revision: number;
   update: UpdateSetting;
 }
+
+export interface ValueRange {
+  min: number;
+  max: number;
+  step: number;
+}

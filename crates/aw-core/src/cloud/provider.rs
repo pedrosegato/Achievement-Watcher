@@ -71,7 +71,6 @@ fn under(folder: &[String], root: &Path) -> bool {
     !root.is_empty() && folder.starts_with(&root)
 }
 
-/// Which sync client owns the cloud folder, judged from its path.
 pub fn provider_for(folder: &Path, hints: &ProviderHints) -> Option<Provider> {
     let parts = lower_parts(folder);
     if hints.onedrive_roots.iter().any(|root| under(&parts, root)) {
@@ -95,8 +94,6 @@ pub enum DriveWait {
     ClientClosed,
 }
 
-/// Whether the play button may sync now: a client that just started may
-/// still be pulling changes, so it waits for the folder to go quiet.
 pub fn drive_wait(
     client_started_ago: Option<Duration>,
     quiet_for: Duration,

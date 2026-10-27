@@ -6,7 +6,9 @@ import { useI18n } from "../../../i18n/useI18n";
 import { queries } from "../../../lib/queries";
 import type { SectionProps } from "../../../types/ui";
 import { FolderList } from "../FolderList";
-import { SettingBlock, SettingRow, SwitchRow } from "../SettingRow";
+import { SettingBlock } from "../SettingBlock";
+import { SettingRow } from "../SettingRow";
+import { SwitchRow } from "../SwitchRow";
 
 export function Games({ settings, update }: SectionProps) {
   const { t } = useI18n();
@@ -31,7 +33,7 @@ export function Games({ settings, update }: SectionProps) {
         checked={settings.steamAchievements}
         onChange={(value) => void update("steamAchievements", value)}
       />
-      <SettingRow label={t("library.rescan")} hint={t("settings.rescanHint")}>
+      <SettingRow label={t("library.rescan")}>
         <Button size="sm" onClick={busy ? undefined : start} aria-busy={busy}>
           <Icon name="sync" size={16} className={busy ? "spinning" : undefined} />
           {busy ? t("library.scanning", { pct: scanning }) : t("settings.rescan")}
@@ -53,14 +55,14 @@ export function Games({ settings, update }: SectionProps) {
           ))}
         </span>
       </SettingRow>
-      <SettingBlock label={t("settings.extraFolders")} hint={t("settings.extraFoldersHint")}>
+      <SettingBlock label={t("settings.extraFolders")}>
         <FolderList
           label={t("settings.extraFolders")}
           values={settings.extraGameRoots}
           onChange={(values) => void update("extraGameRoots", values)}
         />
       </SettingBlock>
-      <SettingBlock label={t("settings.gameFolders")} hint={t("settings.gameFoldersHint")}>
+      <SettingBlock label={t("settings.gameFolders")}>
         <FolderList
           label={t("settings.gameFolders")}
           values={settings.extraGameDirs}

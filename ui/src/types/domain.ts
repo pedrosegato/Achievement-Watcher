@@ -173,6 +173,7 @@ export interface SnapshotView {
   playtimeSeconds: number | null;
   unlocked: number | null;
   isPrincipal: boolean;
+  mine: boolean;
   foundOnDevice: boolean;
 }
 
@@ -188,6 +189,22 @@ export interface CloudGameView {
   openElsewhere: string | null;
   lastAction: LastAction | null;
   snapshots: SnapshotView[];
+  status: SyncStatus;
+}
+
+export type SyncStatus =
+  | { type: "idle" }
+  | { type: "syncing" }
+  | { type: "waiting" }
+  | { type: "failed"; code: string }
+  | { type: "playing" }
+  | { type: "behind"; device: string }
+  | { type: "sent"; at: number }
+  | { type: "received"; at: number; device: string };
+
+export interface CloudActivity {
+  appId: number;
+  syncing: boolean;
 }
 
 export interface PresetInfo {

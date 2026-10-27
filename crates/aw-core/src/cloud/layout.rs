@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -9,6 +10,9 @@ use crate::cloud::key::CloudKey;
 use crate::cloud::utc_stamp;
 
 const GAMES: &str = "games";
+const DEVICES: &str = "devices";
+const EMULATORS: &str = "emulators";
+const README: &str = "README.txt";
 const KEY_SEPARATOR: &str = " - ";
 const MAX_NAME: usize = 80;
 const FALLBACK_NAME: &str = "game";
@@ -33,7 +37,7 @@ impl CloudLayout {
     }
 
     pub fn device_file(&self, id: &DeviceId) -> PathBuf {
-        self.root.join("devices").join(format!("{}.json", id.0))
+        self.root.join(DEVICES).join(format!("{}.json", id.0))
     }
 
     pub fn settings_dir(&self) -> PathBuf {
@@ -45,7 +49,7 @@ impl CloudLayout {
     }
 
     pub fn emulator_dir(&self, emulator: &str) -> PathBuf {
-        self.root.join("emulators").join(emulator)
+        self.root.join(EMULATORS).join(emulator)
     }
 
     pub fn game_dirs(&self, key: &CloudKey) -> Vec<GamePaths> {
@@ -95,9 +99,29 @@ impl CloudLayout {
         grouped
     }
 
+    pub fn changed_games(&self, paths: &[PathBuf]) -> Option<BTreeSet<CloudKey>> {
+        let mut keys = BTreeSet::new();
+        for path in paths {
+            let relative = path.strip_prefix(&self.root).ok()?;
+            let mut parts = relative
+                .components()
+                .map(|part| part.as_os_str().to_string_lossy().into_owned());
+            match parts.next().as_deref() {
+                Some(GAMES) => {
+                    let folder = parts.next()?;
+                    let (prefix, _) = folder.split_once(KEY_SEPARATOR)?;
+                    keys.insert(CloudKey::parse(prefix)?);
+                }
+                Some(DEVICES | EMULATORS | README) => {}
+                _ => return None,
+            }
+        }
+        Some(keys)
+    }
+
     pub fn write_readme(&self, text: &str) -> io::Result<()> {
         std::fs::create_dir_all(&self.root)?;
-        std::fs::write(self.root.join("README.txt"), text)
+        std::fs::write(self.root.join(README), text)
     }
 }
 
@@ -234,5 +258,38 @@ mod tests {
         std::fs::write(&path, "{").unwrap();
         assert_eq!(read_json::<Vec<u32>>(&path), None);
         assert_eq!(read_json::<Vec<u32>>(&dir.path().join("none.json")), None);
+    }
+
+    #[test]
+    fn changes_inside_a_game_folder_touch_only_that_game() {
+        let layout = CloudLayout::new(PathBuf::from(r"G:\My Drive\AW"));
+        let paths = vec![
+            PathBuf::from(r"G:\My Drive\AW\games\374320 - Dark Souls III\heads\desk.json"),
+            PathBuf::from(
+                r"G:\My Drive\AW\games\374320 - Dark Souls III\snapshots\x\snapshot.json",
+            ),
+            PathBuf::from(r"G:\My Drive\AW\games\uplay-4 - Far Cry\locks\nb.json"),
+            PathBuf::from(r"G:\My Drive\AW\devices\nb.json"),
+            PathBuf::from(r"G:\My Drive\AW\README.txt"),
+        ];
+        let keys = layout.changed_games(&paths).unwrap();
+        assert_eq!(keys.len(), 2);
+        assert!(keys.contains(&CloudKey::Steam(374_320)));
+        assert!(keys.contains(&CloudKey::parse("uplay-4").unwrap()));
+    }
+
+    #[test]
+    fn settings_or_unknown_paths_touch_every_game() {
+        let layout = CloudLayout::new(PathBuf::from(r"G:\My Drive\AW"));
+        let settings = vec![PathBuf::from(r"G:\My Drive\AW\settings\nb.json")];
+        assert_eq!(layout.changed_games(&settings), None);
+        let outside = vec![PathBuf::from(r"D:\elsewhere\file.json")];
+        assert_eq!(layout.changed_games(&outside), None);
+        let games_root = vec![PathBuf::from(r"G:\My Drive\AW\games")];
+        assert_eq!(layout.changed_games(&games_root), None);
+        let root = vec![PathBuf::from(r"G:\My Drive\AW")];
+        assert_eq!(layout.changed_games(&root), None);
+        let short_name = vec![PathBuf::from(r"G:\My Drive\AW\games\UPLAY-~1\heads\a.json")];
+        assert_eq!(layout.changed_games(&short_name), None);
     }
 }

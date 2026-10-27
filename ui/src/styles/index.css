@@ -17,6 +17,7 @@
   --color-stop: var(--stop);
   --color-stop-hover: var(--stop-hover);
   --color-on-accent: var(--on-accent);
+  --color-hover: var(--hover);
   --radius-card: 4px;
   --radius-tag: 3px;
   --font-sans: "Schibsted Grotesk", system-ui, sans-serif;

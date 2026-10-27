@@ -6,9 +6,11 @@ pub mod identity;
 pub mod key;
 pub mod keyed;
 pub mod layout;
+pub mod lineage;
 pub mod locate;
 pub mod lock;
 pub mod manifest;
+pub mod migrate;
 pub mod portable;
 pub mod provider;
 pub mod restore;
@@ -38,12 +40,12 @@ pub enum CloudError {
     MultipleAccounts(String),
     #[error("cancelled")]
     Cancelled,
+    #[error("the save changed while it was being copied")]
+    SaveChanged,
 }
 
 pub type CloudResult<T> = Result<T, CloudError>;
 
-/// Stops a restore before it touches local files. Once `cancel` returns, no
-/// swap is running and none will start.
 #[derive(Default)]
 pub struct CancelGate {
     cancelled: std::sync::atomic::AtomicBool,

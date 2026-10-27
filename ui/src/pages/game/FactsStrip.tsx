@@ -4,8 +4,8 @@ import { useI18n } from "../../i18n/useI18n";
 import { completionPercent, rarest } from "../../lib/achievements";
 import { formatDateTime, formatHours, formatPercent } from "../../lib/format";
 import type { GameDetail } from "../../types/domain";
-import { CloudFact } from "./CloudFact";
-import { PlayButton } from "./PlayButton";
+import { CloudFact } from "./cloud/CloudFact";
+import { PlayButton } from "./play/PlayButton";
 
 interface FactsStripProps {
   detail: GameDetail;

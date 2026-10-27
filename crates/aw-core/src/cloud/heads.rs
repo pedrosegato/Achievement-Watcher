@@ -136,6 +136,7 @@ mod tests {
             unlocked: None,
             local_app_id: 7,
             state_file: None,
+            replaces: None,
         }
     }
 

@@ -4,6 +4,7 @@ import { filterDialog, isRare, limitSplit, splitLocked } from "../../../lib/achi
 import { useRareThreshold } from "../../../settings/useAppSettings";
 import type { AchievementFilter, AchievementRow } from "../../../types/domain";
 import { DialogRow } from "./DialogRow";
+import { GroupTitle } from "./GroupTitle";
 import { HiddenRow } from "./HiddenRow";
 import type { HiddenAction } from "./hidden";
 
@@ -16,10 +17,6 @@ interface AchievementListProps {
   maskHidden: boolean;
   revealed: ReadonlySet<string>;
   dispatch: (action: HiddenAction) => void;
-}
-
-function GroupTitle({ children }: { children: string }) {
-  return <h3 className="mt-2.5 mb-0.5 font-semibold text-[12.5px] text-muted">{children}</h3>;
 }
 
 export function AchievementList({

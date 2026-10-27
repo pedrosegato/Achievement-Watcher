@@ -4,6 +4,7 @@ mod app;
 mod art;
 mod cloud;
 mod cloud_commands;
+mod cloud_status;
 mod commands;
 mod diag;
 mod games;
@@ -85,6 +86,7 @@ fn main() {
             cloud_commands::set_game_sync,
             cloud_commands::set_game_save_path,
             cloud_commands::cloud_undo,
+            cloud_commands::cloud_sync_now,
             cloud_commands::cloud_set_principal,
         ])
         .setup(app::setup)

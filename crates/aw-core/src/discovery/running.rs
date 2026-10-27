@@ -184,7 +184,6 @@ pub fn shell_open(_exe: &Path, _dir: Option<&Path>) -> std::io::Result<()> {
     Err(std::io::ErrorKind::Unsupported.into())
 }
 
-/// Opens an executable through the shell, so Windows can ask for elevation.
 #[cfg(windows)]
 pub fn shell_open(exe: &Path, dir: Option<&Path>) -> std::io::Result<()> {
     use std::os::windows::ffi::OsStrExt;
@@ -220,7 +219,6 @@ pub fn shell_open(exe: &Path, dir: Option<&Path>) -> std::io::Result<()> {
     }
 }
 
-/// When the most recent process with this file name started.
 #[cfg(windows)]
 pub fn process_started_at(exe_name: &str) -> Option<std::time::SystemTime> {
     use windows::Win32::Foundation::{CloseHandle, FILETIME};

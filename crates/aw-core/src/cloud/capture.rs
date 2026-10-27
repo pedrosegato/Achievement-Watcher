@@ -39,8 +39,6 @@ type CacheEntry = (u64, SystemTime, String);
 pub const TMP_SUFFIX: &str = ".awtmp";
 pub const OLD_SUFFIX: &str = ".awold";
 
-/// A file written this recently can change again without its size or timestamp
-/// moving (timestamps advance in coarse ticks), so its hash is not cached yet.
 const RACY_WINDOW: std::time::Duration = std::time::Duration::from_secs(2);
 
 #[derive(Default)]

@@ -5,11 +5,10 @@ use std::sync::mpsc::RecvTimeoutError;
 use std::sync::{Arc, PoisonError};
 use std::time::{Duration, Instant, SystemTime};
 
-use aw_core::cloud::capture::HashCache;
-use aw_core::cloud::device::{DeviceId, LocalDevice};
+use aw_core::cloud::device::LocalDevice;
 use aw_core::cloud::key::{CloudKey, GameKind};
 use aw_core::cloud::layout::CloudLayout;
-use aw_core::cloud::lock::{LockRecord, foreign_locks, remove_own_lock, write_lock};
+use aw_core::cloud::lock::{LockRecord, foreign_locks};
 use aw_core::cloud::provider::{DriveWait, ProviderHints, drive_wait, provider_for};
 use aw_core::cloud::sync::{CloudContext, GameTarget, SyncEvent, reconcile_cancellable};
 use aw_core::cloud::{CancelGate, CloudError, CloudResult};
@@ -21,7 +20,10 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::app::{AppState, PLAY_CHANGED};
-use crate::cloud::{TargetInfo, announce, cloud_layout, game_target, inputs_ready, inventory};
+use crate::cloud::{
+    TargetInfo, announce, cloud_layout, game_target, inputs_ready, inventory, local_device,
+    mark_open, release_lock, tracked,
+};
 use crate::games::launch_exe_key;
 
 const STUCK_AFTER: Duration = Duration::from_secs(10);
@@ -89,14 +91,14 @@ impl PlayFlow {
         matches!(self.stage, FlowStage::Syncing { .. } | FlowStage::Launching)
     }
 
-    fn decision(&self) -> Option<Outcome> {
+    fn decision(&self) -> Option<Choice> {
         if !self.gate.is_cancelled() {
             return None;
         }
         Some(if self.anyway.load(Ordering::SeqCst) {
-            Outcome::Go
+            Choice::Go
         } else {
-            Outcome::Cancel
+            Choice::Cancel
         })
     }
 }
@@ -107,13 +109,13 @@ enum Launch {
 }
 
 #[derive(Clone)]
-struct Sync {
+struct SyncTarget {
     layout: CloudLayout,
     target: GameTarget,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum Outcome {
+enum Choice {
     Go,
     Cancel,
 }
@@ -128,25 +130,23 @@ enum Step {
 }
 
 enum Prepared {
-    Go(Option<Box<Sync>>),
+    Go(Option<Box<SyncTarget>>),
     Cancel,
     AlreadyOpen,
     Elsewhere { device: String, since: i64 },
 }
 
-/// What the flow does next, given the latest sync result (`None` while it
-/// still runs), the player's choice and whether the game is already open.
 fn next_step(
     result: Option<&CloudResult<SyncEvent>>,
-    decision: Option<Outcome>,
+    decision: Option<Choice>,
     running: bool,
 ) -> Step {
     if running {
         return Step::AlreadyOpen;
     }
     match (decision, result) {
-        (Some(Outcome::Cancel), _) => Step::Cancel,
-        (Some(Outcome::Go), _) => Step::Go,
+        (Some(Choice::Cancel), _) => Step::Cancel,
+        (Some(Choice::Go), _) => Step::Go,
         (None, None) => Step::Wait,
         (None, Some(Ok(SyncEvent::Waiting) | Err(CloudError::Cancelled))) => {
             Step::Retry { stuck: false }
@@ -160,11 +160,9 @@ fn next_step(
 enum Gate {
     Skip,
     Wait { stuck: bool },
-    Sync,
+    SyncTarget,
 }
 
-/// Whether the save can be synced now: `target` is (sync enabled, has save
-/// roots), known once the inputs are ready.
 fn sync_gate(folder_exists: bool, inputs_ready: bool, target: Option<(bool, bool)>) -> Gate {
     if !folder_exists {
         return Gate::Wait { stuck: true };
@@ -173,7 +171,7 @@ fn sync_gate(folder_exists: bool, inputs_ready: bool, target: Option<(bool, bool
         return Gate::Wait { stuck: false };
     }
     match target {
-        Some((true, true)) => Gate::Sync,
+        Some((true, true)) => Gate::SyncTarget,
         _ => Gate::Skip,
     }
 }
@@ -186,9 +184,6 @@ enum LaunchPick {
     NeedsExe,
 }
 
-/// How the game opens: an exe the player chose wins over everything; Steam
-/// originals open through Steam; cracked games use the exe seen running,
-/// then the best guess from the game folder.
 fn pick_launch(
     steam_original: bool,
     chosen: Option<PathBuf>,
@@ -267,19 +262,8 @@ pub fn begin_flow(plays: &mut HashMap<u32, PlayFlow>, app_id: u32) -> bool {
     true
 }
 
-pub fn give_up(layout: &CloudLayout, device: &DeviceId, key: &CloudKey) -> std::io::Result<()> {
-    for game in layout.game_dirs(key) {
-        remove_own_lock(&game, device)?;
-    }
-    Ok(())
-}
-
 fn device(state: &AppState) -> LocalDevice {
-    state
-        .device
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .clone()
+    local_device(state)
 }
 
 fn is_running(app: &AppHandle, app_id: u32) -> bool {
@@ -324,7 +308,7 @@ pub async fn launch_choice(
 }
 
 fn foreign_lock(state: &AppState, layout: &CloudLayout, key: &CloudKey) -> Option<LockRecord> {
-    foreign_locks(&layout.game_dirs(key), &device(state).id, unix_now())
+    foreign_locks(&layout.game_dirs(key), &device(state), unix_now())
         .into_iter()
         .max_by_key(|lock| lock.started_at)
 }
@@ -427,16 +411,21 @@ pub async fn play_game(
 }
 
 #[tauri::command]
-pub fn play_anyway(state: State<'_, AppState>, app_id: u32) {
+pub async fn play_anyway(state: State<'_, AppState>, app_id: u32) -> Result<(), String> {
     let flow = state.plays().get(&app_id).cloned();
     if let Some(flow) = flow {
         flow.anyway.store(true, Ordering::SeqCst);
         flow.gate.cancel();
     }
+    Ok(())
 }
 
 #[tauri::command]
-pub fn cancel_play(app: AppHandle, state: State<'_, AppState>, app_id: u32) {
+pub async fn cancel_play(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    app_id: u32,
+) -> Result<(), String> {
     let flow = state.plays().get(&app_id).cloned();
     match flow {
         Some(flow) if flow.active() => flow.gate.cancel(),
@@ -446,6 +435,7 @@ pub fn cancel_play(app: AppHandle, state: State<'_, AppState>, app_id: u32) {
         }
         None => {}
     }
+    Ok(())
 }
 
 #[tauri::command]
@@ -487,8 +477,6 @@ fn mark_stuck(app: &AppHandle, app_id: u32, stuck: &mut bool) {
     }
 }
 
-/// Sleeps up to `duration`, returning early when the player decides or the
-/// game is opened some other way.
 fn pause(
     app: &AppHandle,
     app_id: u32,
@@ -517,7 +505,7 @@ fn wait_for_drive(
     app: &AppHandle,
     app_id: u32,
     flow: &PlayFlow,
-    sync: &Sync,
+    sync: &SyncTarget,
     started: Instant,
     stuck: &mut bool,
 ) -> Option<Step> {
@@ -544,7 +532,7 @@ fn wait_for_drive(
 
 fn sync_once(
     app: &AppHandle,
-    sync: &Sync,
+    sync: &SyncTarget,
     app_id: u32,
     gate: &CancelGate,
 ) -> CloudResult<SyncEvent> {
@@ -556,23 +544,24 @@ fn sync_once(
     if state.running().contains_key(&app_id) {
         return Ok(SyncEvent::Nothing);
     }
-    let cache = HashCache::default();
     let now = unix_now();
     let ctx = CloudContext {
         layout: &sync.layout,
         device: &device,
         store: &store,
-        cache: &cache,
+        cache: &state.cloud.cache,
         now,
     };
-    reconcile_cancellable(&ctx, &sync.target, now, gate)
+    tracked(app, &sync.target, || {
+        reconcile_cancellable(&ctx, &sync.target, now, gate)
+    })
 }
 
 fn attempt(
     app: &AppHandle,
     app_id: u32,
     flow: &PlayFlow,
-    sync: &Sync,
+    sync: &SyncTarget,
     started: Instant,
     stuck: &mut bool,
 ) -> Step {
@@ -637,9 +626,9 @@ fn prepare(app: &AppHandle, app_id: u32, flow: &PlayFlow, mut checked: bool) -> 
                 }
                 pause(app, app_id, flow, POLL, started, &mut stuck)
             }
-            (Gate::Sync, None) => return Prepared::Go(None),
-            (Gate::Sync, Some(info)) => {
-                let sync = Sync {
+            (Gate::SyncTarget, None) => return Prepared::Go(None),
+            (Gate::SyncTarget, Some(info)) => {
+                let sync = SyncTarget {
                     layout,
                     target: info.target,
                 };
@@ -681,34 +670,17 @@ fn prepare(app: &AppHandle, app_id: u32, flow: &PlayFlow, mut checked: bool) -> 
     }
 }
 
-fn mark_open(app: &AppHandle, sync: &Sync) {
+fn open_mark(app: &AppHandle, sync: &SyncTarget) {
     let device = device(&app.state::<AppState>());
-    let now = unix_now();
-    let written = sync
-        .layout
-        .game_dir_for_write(&sync.target.key, &sync.target.name)
-        .and_then(|game| {
-            write_lock(
-                &game,
-                &device.id,
-                &LockRecord {
-                    device_id: device.id.0.clone(),
-                    device_name: device.name.clone(),
-                    game_key: sync.target.key.as_folder_key(),
-                    started_at: now,
-                    renewed_at: now,
-                },
-            )
-        });
-    if let Err(error) = written {
+    if let Err(error) = mark_open(&sync.layout, &sync.target, &device) {
         tracing::warn!("cannot mark {} as open: {error}", sync.target.name);
     }
 }
 
-fn release(app: &AppHandle, sync: Option<&Sync>) {
+fn release(app: &AppHandle, sync: Option<&SyncTarget>) {
     let Some(sync) = sync else { return };
     let device = device(&app.state::<AppState>());
-    if let Err(error) = give_up(&sync.layout, &device.id, &sync.target.key) {
+    if let Err(error) = release_lock(&sync.layout, &device.id, &sync.target.key) {
         tracing::warn!(
             "cannot release the open mark of {}: {error}",
             sync.target.name
@@ -757,7 +729,7 @@ fn run_flow(app: &AppHandle, app_id: u32, wanted: bool, checked: bool, launch: &
         None
     };
     if let Some(sync) = &sync {
-        mark_open(app, sync);
+        open_mark(app, sync);
     }
     set_stage(app, app_id, Some(FlowStage::Launching));
     if let Err(error) = spawn_game(app_id, launch) {
@@ -784,6 +756,7 @@ fn run_flow(app: &AppHandle, app_id: u32, wanted: bool, checked: bool, launch: &
 
 #[cfg(test)]
 mod tests {
+    use aw_core::cloud::device::DeviceId;
     use aw_core::cloud::lock::{LockRecord, own_lock, write_lock};
 
     use super::*;
@@ -861,7 +834,7 @@ mod tests {
             },
         )
         .unwrap();
-        give_up(&layout, &device, &key).unwrap();
+        release_lock(&layout, &device, &key).unwrap();
         assert!(own_lock(&game, &device).is_none());
     }
 
@@ -873,7 +846,7 @@ mod tests {
     fn cancel_after_a_finished_sync_wins() {
         let done = ok(SyncEvent::Nothing);
         assert_eq!(
-            next_step(Some(&done), Some(Outcome::Cancel), false),
+            next_step(Some(&done), Some(Choice::Cancel), false),
             Step::Cancel
         );
         assert_eq!(next_step(Some(&done), None, false), Step::Go);
@@ -881,8 +854,8 @@ mod tests {
 
     #[test]
     fn a_decision_does_not_wait_for_the_sync() {
-        assert_eq!(next_step(None, Some(Outcome::Go), false), Step::Go);
-        assert_eq!(next_step(None, Some(Outcome::Cancel), false), Step::Cancel);
+        assert_eq!(next_step(None, Some(Choice::Go), false), Step::Go);
+        assert_eq!(next_step(None, Some(Choice::Cancel), false), Step::Cancel);
         assert_eq!(next_step(None, None, false), Step::Wait);
     }
 
@@ -890,7 +863,7 @@ mod tests {
     fn a_game_opened_some_other_way_ends_the_flow() {
         let done = ok(SyncEvent::Nothing);
         assert_eq!(next_step(Some(&done), None, true), Step::AlreadyOpen);
-        assert_eq!(next_step(None, Some(Outcome::Go), true), Step::AlreadyOpen);
+        assert_eq!(next_step(None, Some(Choice::Go), true), Step::AlreadyOpen);
     }
 
     #[test]
@@ -926,7 +899,7 @@ mod tests {
 
     #[test]
     fn ready_inputs_decide_between_sync_and_skip() {
-        assert_eq!(sync_gate(true, true, Some((true, true))), Gate::Sync);
+        assert_eq!(sync_gate(true, true, Some((true, true))), Gate::SyncTarget);
         assert_eq!(sync_gate(true, true, Some((false, true))), Gate::Skip);
         assert_eq!(sync_gate(true, true, Some((true, false))), Gate::Skip);
         assert_eq!(sync_gate(true, true, None), Gate::Skip);

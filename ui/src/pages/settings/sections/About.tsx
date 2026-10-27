@@ -9,7 +9,8 @@ import { api, errorMessage } from "../../../lib/commands";
 import { queries } from "../../../lib/queries";
 import type { SectionProps } from "../../../types/ui";
 import { DiagnosticsSections } from "../DiagnosticsSections";
-import { SettingBlock, SwitchRow } from "../SettingRow";
+import { SettingBlock } from "../SettingBlock";
+import { SwitchRow } from "../SwitchRow";
 
 export function About({ settings, update }: SectionProps) {
   const { t } = useI18n();

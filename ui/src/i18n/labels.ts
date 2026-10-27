@@ -47,11 +47,6 @@ export const FORMAT_LABELS: Record<VideoFormat, Key> = {
   small: "settings.format.small",
 };
 
-export const FORMAT_HINTS: Record<VideoFormat, Key> = {
-  compatible: "settings.format.compatibleHint",
-  small: "settings.format.smallHint",
-};
-
 export const QUALITY_HINTS: Record<VideoQuality, Key> = {
   light: "settings.quality.lightHint",
   balanced: "settings.quality.balancedHint",

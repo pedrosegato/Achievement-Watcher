@@ -16,8 +16,6 @@ pub struct RestoreTarget<'a> {
     pub placeholders: &'a Placeholders,
     pub local: &'a Capture,
     pub base_playtime: Option<i64>,
-    /// Where achievements come from when the snapshot has none (it came from
-    /// an original copy): the closest cracked snapshot in its history.
     pub inherited_state: Option<&'a Path>,
     pub cancel: Option<&'a CancelGate>,
 }
@@ -125,7 +123,6 @@ pub fn restore(
             return Err(error);
         }
     }
-    drop(swap);
     for backup in swapped.iter().filter_map(|(_, backup)| backup.as_ref()) {
         let _ = remove_forced(backup);
     }
@@ -145,11 +142,10 @@ pub fn restore(
             _ => {}
         }
     }
+    drop(swap);
     Ok(())
 }
 
-/// Key under which two paths name the same file: symlinks resolved, and
-/// case-folded because Windows file names are case-insensitive.
 fn same_file(path: &Path) -> String {
     let key = physical(path).to_string_lossy().into_owned();
     if cfg!(windows) {
@@ -159,8 +155,6 @@ fn same_file(path: &Path) -> String {
     }
 }
 
-/// Moves `temp` over `destination`, keeping the previous file as a backup until
-/// the whole restore succeeds.
 fn swap_in(temp: &Path, destination: &Path) -> std::io::Result<Option<PathBuf>> {
     let backup = std::fs::symlink_metadata(destination)
         .is_ok()
@@ -201,8 +195,6 @@ fn remove_forced(path: &Path) -> std::io::Result<()> {
     std::fs::remove_file(path)
 }
 
-/// The concrete folder a root resolved to for this file, e.g. one account's
-/// folder under `<storeUserId>`, as a `same_file` key ending in a separator.
 fn root_instance(path: &Path, original: &PortablePath, roots: &[SaveRoot]) -> Option<String> {
     let pattern = matching_root(original, roots)?;
     let below = original.as_str().split('/').count() - pattern.len();
@@ -428,10 +420,7 @@ mod tests {
         state: Option<GameState>,
     ) -> (PathBuf, SnapshotMeta) {
         let cap = capture(roots, &w.a, state, &HashCache::default()).unwrap();
-        let device = LocalDevice {
-            id: DeviceId("a".into()),
-            name: "A".into(),
-        };
+        let device = LocalDevice::new(DeviceId("a".into()), "A");
         let meta = write_snapshot(&NewSnapshot {
             game: &w.game,
             game_key: "7",
@@ -442,6 +431,7 @@ mod tests {
             parent: None,
             found_on_device: false,
             kept: false,
+            replaces: None,
             local_app_id: 7,
             capture: &cap,
         })

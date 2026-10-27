@@ -4,7 +4,7 @@ use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
-use aw_core::cloud::device::{LocalDevice, default_device_name};
+use aw_core::cloud::device::{LocalDevice, default_device_name, this_machine_id};
 use aw_core::discovery::detect::DetectConfig;
 use aw_core::discovery::folders::KnownFolders;
 use aw_core::discovery::steam::steam_install_path;
@@ -309,7 +309,11 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             tracing::warn!("cannot save default settings: {error}");
         }
     }
-    let device = LocalDevice::load_or_create(&paths.device_file, &default_device_name())?;
+    let device = LocalDevice::load(
+        &paths.device_file,
+        &default_device_name(),
+        this_machine_id(),
+    )?;
     let read_store = Store::open(&paths.db_file)?;
     let engine_store = Store::open(&paths.db_file)?;
     let folders = KnownFolders::from_system().unwrap_or_else(|error| {

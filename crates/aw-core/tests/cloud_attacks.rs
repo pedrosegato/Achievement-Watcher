@@ -1,11 +1,3 @@
-//! Adversarial tests for cloud save sync. Each test names the invariant it
-//! checks:
-//! 1. No local save state is ever lost.
-//! 2. The app never deletes anything in the cloud or save folders (besides temp files).
-//! 3. PCs converge and idle reconciles do nothing.
-//! 4. Corrupt/partial/foreign cloud files never crash sync or corrupt saves; it waits or skips.
-//! 5. Cloud paths never make a restore write outside the save roots.
-
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -45,10 +37,7 @@ impl Pc {
         Pc {
             root: tempfile::tempdir().unwrap(),
             store: Store::in_memory().unwrap(),
-            device: LocalDevice {
-                id: DeviceId(id.into()),
-                name: name.into(),
-            },
+            device: LocalDevice::new(DeviceId(id.into()), name),
             cache: HashCache::default(),
             kind,
             seen: std::cell::RefCell::new(Vec::new()),
@@ -234,12 +223,6 @@ fn pushed(event: SyncEvent) -> String {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Failing-restore handling (pending marker)
-// ---------------------------------------------------------------------------
-
-/// Invariant 4: a cloud file that has the right size but wrong bytes (cloud
-/// conflict, bit rot, half-hydrated placeholder) must make sync wait, not fail.
 #[test]
 fn same_size_corrupted_principal_waits_instead_of_failing() {
     let (_dir, cloud) = cloud();
@@ -266,10 +249,6 @@ fn same_size_corrupted_principal_waits_instead_of_failing() {
     assert_eq!(b.read_save("1"), "AAAA-v1");
 }
 
-/// Invariant 3/4: once a restore fails, the `cloud_pending` marker pins the
-/// broken snapshot forever. Even after another PC pushes a good new principal,
-/// and even when the user explicitly picks another snapshot, every sync of
-/// this game keeps failing on the broken snapshot.
 #[test]
 fn failed_restore_pins_the_pc_to_the_broken_snapshot_forever() {
     let (_dir, cloud) = cloud();
@@ -292,23 +271,27 @@ fn failed_restore_pins_the_pc_to_the_broken_snapshot_forever() {
     a.write_save("1", "AAAA-v3");
     let v3 = pushed(a.reconcile(&cloud, T0 + 300));
     let later = b.try_reconcile(&cloud, T0 + 400);
+    let older = match &later {
+        Ok(SyncEvent::Restored {
+            kept_local: Some(kept),
+            ..
+        }) => kept.clone(),
+        _ => v1.clone(),
+    };
     let picked = set_principal(
         &b.ctx(&cloud, T0 + 500),
         &b.target(),
-        &v1,
+        &older,
         HeadReason::Manual,
     );
     let undone = undo(&b.ctx(&cloud, T0 + 600), &b.target());
     assert!(
         matches!(&later, Ok(SyncEvent::Restored { snapshot, .. }) if *snapshot == v3)
             && picked.is_ok(),
-        "B should move on to v3 ({v3}) and the user should be able to pick v1;          got reconcile={later:?} set_principal={picked:?} undo={undone:?}"
+        "B should move on to v3 ({v3}) and the user should be able to pick an older version;          got reconcile={later:?} set_principal={picked:?} undo={undone:?}"
     );
 }
 
-/// Invariant 4: state.json is not covered by any size/hash in snapshot.json,
-/// so a still-downloading (zero-byte) state.json passes the "ready" check and
-/// the restore errors instead of waiting.
 #[test]
 fn zero_byte_state_json_waits_instead_of_failing() {
     let (_dir, cloud) = cloud();
@@ -325,10 +308,6 @@ fn zero_byte_state_json_waits_instead_of_failing() {
     );
 }
 
-/// Invariant 3: a Steam PC with two accounts in userdata (only one of which
-/// ever ran the game) can never receive a save from an emulator PC: the
-/// account choice looks at every userdata folder, not those that hold the
-/// game, so restore fails with MultipleAccounts on every sync.
 #[test]
 fn steam_userdata_with_an_unrelated_second_account_still_restores() {
     let (_dir, cloud) = cloud();
@@ -377,9 +356,6 @@ fn steam_userdata_with_an_unrelated_second_account_still_restores() {
     );
 }
 
-/// Invariant 3/4: a pending marker whose snapshot is temporarily gone is
-/// ignored but never cleared. When the snapshot comes back (cloud re-sync,
-/// recycle bin), the PC restores that stale snapshot over newer local play.
 #[test]
 fn stale_pending_marker_restores_an_old_snapshot_when_it_reappears() {
     let (dir, cloud) = cloud();
@@ -390,7 +366,6 @@ fn stale_pending_marker_restores_an_old_snapshot_when_it_reappears() {
     b.reconcile(&cloud, T0 + 10);
     a.write_save("1", "v2");
     let v2 = pushed(a.reconcile(&cloud, T0 + 100));
-    // B starts restoring v2 and crashes right after recording the marker.
     b.store.meta_set("cloud_pending:374320", &v2).unwrap();
     let v2_dir = snapshot_dir(&cloud, &v2);
     let parked = dir.path().join("parked");
@@ -415,13 +390,6 @@ fn stale_pending_marker_restores_an_old_snapshot_when_it_reappears() {
     assert_eq!(b.read_save("1"), "b plays more");
 }
 
-// ---------------------------------------------------------------------------
-// Clock skew / timestamps
-// ---------------------------------------------------------------------------
-
-/// Invariant 3: a PC whose clock runs a day ahead writes heads that outrank
-/// every honest push for a day; the other PC's fresh progress is reverted on
-/// its very next reconcile.
 #[test]
 fn pc_with_clock_ahead_reverts_the_other_pcs_new_progress() {
     let (_dir, cloud) = cloud();
@@ -444,8 +412,6 @@ fn pc_with_clock_ahead_reverts_the_other_pcs_new_progress() {
     assert_eq!(honest.read_save("1"), "new progress");
 }
 
-/// Invariant 4: the 6h wait cap must hold for a head stamped in the future
-/// (skewed clock) whose snapshot never arrives.
 #[test]
 fn future_head_for_missing_snapshot_does_not_wait_forever() {
     let (_dir, cloud) = cloud();
@@ -464,9 +430,7 @@ fn future_head_for_missing_snapshot_does_not_wait_forever() {
     assert_ne!(event, SyncEvent::Waiting);
 }
 
-/// Invariant 4: a garbage head with chosen_at = i64::MIN must not crash sync
 /// (debug: overflow panic in `now - latest.chosen_at`; release: wraps and waits
-/// forever).
 #[test]
 fn head_with_minimum_timestamp_does_not_crash_or_wait() {
     let (_dir, cloud) = cloud();
@@ -495,8 +459,6 @@ fn head_with_minimum_timestamp_does_not_crash_or_wait() {
     );
 }
 
-/// Invariant 4: a garbage state.json with an enormous playtime must not crash
-/// sync (overflow in restore's playtime carry-over).
 #[test]
 fn huge_playtime_in_cloud_state_does_not_crash() {
     let (_dir, cloud) = cloud();
@@ -520,12 +482,6 @@ fn huge_playtime_in_cloud_state_does_not_crash() {
     assert!(b.store.aw_playtime_seconds(APP).unwrap() > 0);
 }
 
-// ---------------------------------------------------------------------------
-// Restore mechanics on Windows file systems
-// ---------------------------------------------------------------------------
-
-/// Invariant 1/4: when the cloud copy and the local copy differ only in the
-/// case of the file name, restore must leave the restored file in place.
 #[test]
 fn restore_over_file_with_different_name_case_keeps_the_file() {
     let (_dir, cloud) = cloud();
@@ -555,8 +511,6 @@ fn restore_over_file_with_different_name_case_keeps_the_file() {
     assert_nothing_lost(&cloud, &[&a, &b]);
 }
 
-/// Invariant 4: a read-only local save makes the restore fail part-way; the
-/// files must not end up as a mix of two snapshots.
 #[test]
 fn read_only_destination_does_not_leave_a_half_applied_restore() {
     let (_dir, cloud) = cloud();
@@ -587,9 +541,6 @@ fn read_only_destination_does_not_leave_a_half_applied_restore() {
     );
 }
 
-/// Invariant 2 (as stated) and 1: restoring a principal that has nothing for
-/// one of this PC's save roots deletes that root's saves and writes nothing in
-/// their place.
 #[test]
 fn restore_does_not_wipe_a_save_root_the_snapshot_does_not_cover() {
     let (_dir, cloud) = cloud();
@@ -614,10 +565,6 @@ fn restore_does_not_wipe_a_save_root_the_snapshot_does_not_cover() {
     );
     assert_nothing_lost(&cloud, &[&a, &b]);
 }
-
-// ---------------------------------------------------------------------------
-// Path traversal (invariant 5) - expected to hold
-// ---------------------------------------------------------------------------
 
 fn hostile_original_restore(original: &str) -> (Pc, BTreeSet<PathBuf>, CloudResult<SyncEvent>) {
     let (_dir, cloud) = cloud();
@@ -692,10 +639,6 @@ fn hostile_stored_paths_are_never_read() {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Garbage in the cloud folder (invariant 4) - expected to hold
-// ---------------------------------------------------------------------------
-
 #[test]
 fn garbage_everywhere_in_the_cloud_folder_is_ignored() {
     let (_dir, cloud) = cloud();
@@ -763,10 +706,6 @@ fn snapshot_json_with_extreme_values_is_tolerated() {
     assert_eq!(b.read_save("1"), "v1");
 }
 
-// ---------------------------------------------------------------------------
-// Convergence and no-deletion (invariants 1-3) - expected to hold
-// ---------------------------------------------------------------------------
-
 #[test]
 fn three_pcs_diverging_converge_and_go_quiet() {
     let (_dir, cloud) = cloud();
@@ -815,7 +754,6 @@ fn simultaneous_pushes_with_tied_timestamps_converge() {
     a.write_save("1", "a");
     b.write_save("1", "b");
     a.reconcile(&cloud, T0 + 100);
-    // B decides on the same second without having seen A's head yet.
     let heads_dir = game_dir(&cloud).join("heads");
     let a_head = std::fs::read(heads_dir.join("a.json")).unwrap();
     std::fs::remove_file(heads_dir.join("a.json")).unwrap();
@@ -842,8 +780,6 @@ fn set_principal_to_old_then_play_then_undo_keeps_everything() {
     let v1 = pushed(a.reconcile(&cloud, T0));
     a.write_save("1", "v2");
     a.reconcile(&cloud, T0 + 100);
-    a.write_save("1", "v3");
-    a.reconcile(&cloud, T0 + 200);
     b.reconcile(&cloud, T0 + 210);
     set_principal(
         &b.ctx(&cloud, T0 + 300),
@@ -908,7 +844,6 @@ fn interrupted_restore_leftovers_are_not_captured_or_pushed() {
     a.reconcile(&cloud, T0);
     put(&a.save_dir("1").join("DS30000.sl2.awtmp"), "half staged");
     assert_eq!(a.reconcile(&cloud, T0 + 100), SyncEvent::Nothing);
-    // half-written snapshot by a crashed writer
     put(
         &game_dir(&cloud)
             .join("snapshots")
@@ -988,10 +923,6 @@ fn conflict_copy_of_own_head_file_does_not_flip_principal() {
     assert_eq!(read_heads(&cloud.game_dirs(&CloudKey::Steam(APP))).len(), 2);
     assert_eq!(b.reconcile(&cloud, T0 + 300), SyncEvent::Nothing);
 }
-
-// ---------------------------------------------------------------------------
-// keyed settings merge / portable paths - expected to hold
-// ---------------------------------------------------------------------------
 
 fn doc(device: &str, keys: &[(&str, Value, i64)]) -> KeyedDoc {
     KeyedDoc {

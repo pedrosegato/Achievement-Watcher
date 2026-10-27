@@ -1,15 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { DropdownMenu } from "radix-ui";
-import { useCallback } from "react";
-import { Icon } from "../../components/Icon";
-import { Button } from "../../components/ui/button";
-import { EVENTS } from "../../constants";
-import { useTauriEvent } from "../../hooks/useTauriEvent";
-import { useI18n } from "../../i18n/useI18n";
-import { api } from "../../lib/commands";
-import { pickFile } from "../../lib/dialog";
-import { launchLine } from "../../lib/play";
-import { queries } from "../../lib/queries";
+import { Icon } from "../../../components/Icon";
+import { Button } from "../../../components/ui/button";
+import { useI18n } from "../../../i18n/useI18n";
+import { api } from "../../../lib/commands";
+import { pickFile } from "../../../lib/dialog";
+import { launchLine } from "../../../lib/play";
+import { queries } from "../../../lib/queries";
 
 interface LaunchMenuProps {
   appId: number;
@@ -19,14 +16,11 @@ interface LaunchMenuProps {
 }
 
 const ITEM =
-  "flex cursor-pointer select-none items-center gap-2 rounded-tag px-2 py-1.5 text-[13px] outline-none data-highlighted:bg-surface-2";
+  "flex cursor-pointer select-none items-center gap-2 rounded-tag px-2 py-1.5 text-[13px] outline-none data-highlighted:bg-hover";
 
 export function LaunchMenu({ appId, variant, disabled, run }: LaunchMenuProps) {
   const { t } = useI18n();
-  const { data: choice, refetch } = useQuery(queries.launchChoice(appId));
-  const refresh = useCallback(() => void refetch(), [refetch]);
-  useTauriEvent(EVENTS.playChanged, refresh);
-  useTauriEvent(EVENTS.gamesChanged, refresh);
+  const { data: choice } = useQuery(queries.launchChoice(appId));
   const line = choice ? launchLine(choice) : null;
 
   const choose = () =>

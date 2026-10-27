@@ -3,13 +3,13 @@ import { Collapsible } from "../../../components/Collapsible";
 import { Segmented } from "../../../components/Segmented";
 import { Button } from "../../../components/ui/button";
 import { VIDEO_FORMATS, VIDEO_FPS, VIDEO_QUALITIES } from "../../../constants";
-import { FORMAT_HINTS, FORMAT_LABELS, QUALITY_HINTS, QUALITY_LABELS } from "../../../i18n/labels";
+import { FORMAT_LABELS, QUALITY_HINTS, QUALITY_LABELS } from "../../../i18n/labels";
 import { useI18n } from "../../../i18n/useI18n";
 import { clipSizeMb } from "../../../lib/video";
 import type { VideoFormat, VideoQuality } from "../../../types/domain";
 import type { SectionProps } from "../../../types/ui";
 import { ClipTimeline } from "../ClipTimeline";
-import { PathField } from "../controls";
+import { PathField } from "../controls/PathField";
 import { SettingGroup } from "../SettingGroup";
 import { SettingRow } from "../SettingRow";
 import { useFfmpeg } from "../useFfmpeg";
@@ -128,10 +128,7 @@ export function Captures({ settings, update }: SectionProps) {
               onChange={(value) => void update("videoFps", Number(value))}
             />
           </SettingRow>
-          <SettingRow
-            label={t("settings.videoFormat")}
-            hint={t(FORMAT_HINTS[settings.videoFormat])}
-          >
+          <SettingRow label={t("settings.videoFormat")}>
             <Segmented
               label={t("settings.videoFormat")}
               options={formatOptions}

@@ -7,6 +7,7 @@ export const EVENTS = {
   ffmpegProgress: "ffmpeg-progress",
   cloudChanged: "cloud-changed",
   playChanged: "play-changed",
+  cloudActivity: "cloud-activity",
 } as const;
 
 export const APP_NAME = "Achievement Watcher";

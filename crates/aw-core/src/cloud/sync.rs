@@ -9,6 +9,7 @@ use crate::cloud::device::LocalDevice;
 use crate::cloud::heads::{HeadChoice, HeadReason, principal, read_heads, write_head};
 use crate::cloud::key::{CloudKey, GameKind};
 use crate::cloud::layout::{CloudLayout, GamePaths};
+use crate::cloud::lineage::has_children;
 use crate::cloud::locate::{Category, SaveRoot};
 use crate::cloud::portable::Placeholders;
 use crate::cloud::restore::{RestoreTarget, restore};
@@ -145,10 +146,6 @@ pub fn profile(game: &GameTarget) -> String {
     format!("{:?}|{}", game.kind, roots.join(";"))
 }
 
-/// The base only describes this PC while the watched folders stay the same.
-/// After they change, a save that still matches the base snapshot is treated
-/// as never synced (the cloud fills in what is missing, e.g. achievements),
-/// while a save that differs is local progress made since the base.
 fn rebase(base: CloudBase, game: &GameTarget, local: &Capture, cloud: &Cloud) -> Option<CloudBase> {
     if base.profile == profile(game) {
         return Some(base);
@@ -231,11 +228,25 @@ fn choose(
     Ok(())
 }
 
+struct Lineage {
+    parent: Option<String>,
+    replaces: Option<String>,
+}
+
+impl From<Option<String>> for Lineage {
+    fn from(parent: Option<String>) -> Lineage {
+        Lineage {
+            parent,
+            replaces: None,
+        }
+    }
+}
+
 fn push(
     ctx: &CloudContext,
     game: &GameTarget,
     local: &Capture,
-    parent: Option<String>,
+    lineage: Lineage,
     ended: i64,
     found_on_device: bool,
     kept: bool,
@@ -248,7 +259,8 @@ fn push(
         device: ctx.device,
         now: ctx.now,
         session_ended_at: ended,
-        parent,
+        parent: lineage.parent,
+        replaces: lineage.replaces,
         found_on_device,
         kept,
         local_app_id: game.app_id,
@@ -280,7 +292,7 @@ fn preserve(
         ctx,
         game,
         local,
-        base.map(|b| b.snapshot_id.clone()),
+        base.map(|b| b.snapshot_id.clone()).into(),
         ended,
         base.is_none(),
         kept,
@@ -332,12 +344,42 @@ fn apply(
     }
     let after = local_capture(ctx, game)?;
     set_base(ctx, game, &meta.id, &after)?;
+    let donor = inherited.map_or("", |(_, donor)| donor.id.as_str());
+    ctx.store.meta_set(&inherited_key(game), donor)?;
     clear_pending(ctx, game)
 }
 
-/// The most recent snapshot that carries achievements (pushed by a cracked
-/// copy), skipping copies kept only as a backup before an overwrite. Every PC
-/// sees the same list, so cracked PCs agree on it.
+fn lost_files(meta: &SnapshotMeta, local: &Capture) -> bool {
+    let present: HashSet<_> = local
+        .files
+        .iter()
+        .filter(|file| file.category == Category::Save)
+        .map(|file| &file.original)
+        .collect();
+    meta.files
+        .iter()
+        .filter(|file| file.category == Category::Save)
+        .any(|file| !present.contains(&file.original))
+}
+
+fn prune_replaced(cloud: &Cloud, replaced: &SnapshotMeta) {
+    let Some(older) = replaced.replaces.as_deref() else {
+        return;
+    };
+    let Some((dir, _)) = cloud.find(older) else {
+        return;
+    };
+    let only_child = cloud
+        .snapshots
+        .iter()
+        .filter(|(_, meta)| meta.parent.as_deref() == Some(older))
+        .all(|(_, meta)| meta.id == replaced.id);
+    let chosen = cloud.heads.iter().any(|head| head.snapshot_id == older);
+    if only_child && !chosen {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
 fn last_cracked(cloud: &Cloud) -> Option<&(PathBuf, SnapshotMeta)> {
     cloud
         .snapshots
@@ -351,12 +393,30 @@ fn clear_pending(ctx: &CloudContext, game: &GameTarget) -> CloudResult<()> {
     Ok(())
 }
 
+fn inherited_key(game: &GameTarget) -> String {
+    format!("cloud_inherited:{}", game.key.as_folder_key())
+}
+
+fn newer_cracked_state(
+    ctx: &CloudContext,
+    game: &GameTarget,
+    current: &SnapshotMeta,
+    cloud: &Cloud,
+) -> CloudResult<bool> {
+    if game.kind != GameKind::Emulator || current.contents.state {
+        return Ok(false);
+    }
+    let Some((_, donor)) = last_cracked(cloud) else {
+        return Ok(false);
+    };
+    let inherited = ctx.store.meta_get(&inherited_key(game))?;
+    Ok(inherited.as_deref() != Some(donor.id.as_str()))
+}
+
 fn pending_key(game: &GameTarget) -> String {
     format!("cloud_pending:{}", game.key.as_folder_key())
 }
 
-/// A snapshot whose files fail verification is treated as still downloading:
-/// it is left out and the decision is made again without it.
 pub fn reconcile(
     ctx: &CloudContext,
     game: &GameTarget,
@@ -365,8 +425,6 @@ pub fn reconcile(
     reconcile_cancellable(ctx, game, session_ended_at, &CancelGate::default())
 }
 
-/// Like `reconcile`, but a restore stops before touching local files once
-/// `cancel` is set, returning `CloudError::Cancelled`.
 pub fn reconcile_cancellable(
     ctx: &CloudContext,
     game: &GameTarget,
@@ -377,6 +435,9 @@ pub fn reconcile_cancellable(
     loop {
         match reconcile_once(ctx, game, session_ended_at, &excluded, cancel) {
             Err(CloudError::Incomplete(id)) if !excluded.contains(&id) => {
+                if cancel.is_cancelled() {
+                    return Err(CloudError::Cancelled);
+                }
                 excluded.insert(id);
             }
             result => return result,
@@ -461,17 +522,64 @@ fn reconcile_once(
     });
     let current_id = current_entry.map(|(_, meta)| meta.id.clone());
     match decision {
-        Decision::Nothing => Ok(SyncEvent::Nothing),
+        Decision::Nothing => match current_entry {
+            Some(entry) if newer_cracked_state(ctx, game, &entry.1, &cloud)? => {
+                apply(ctx, game, entry, &local, base.as_ref(), &cloud, cancel)?;
+                Ok(SyncEvent::Restored {
+                    snapshot: entry.1.id.clone(),
+                    playtime_seconds: entry.1.playtime_seconds,
+                    kept_local: None,
+                })
+            }
+            _ => Ok(SyncEvent::Nothing),
+        },
         Decision::Adopt { snapshot } => {
             set_base(ctx, game, &snapshot, &local)?;
             clear_pending(ctx, game)?;
             Ok(SyncEvent::Adopted { snapshot })
         }
         Decision::Push { parent } => {
-            let meta = push(ctx, game, &local, parent, session_ended_at, false, false)?;
+            let played_from = parent.as_deref().and_then(|id| cloud.find(id));
+            if let Some(entry) = played_from
+                && lost_files(&entry.1, &local)
+            {
+                let stray = push(
+                    ctx,
+                    game,
+                    &local,
+                    parent.into(),
+                    session_ended_at,
+                    false,
+                    false,
+                )?;
+                apply(ctx, game, entry, &local, base.as_ref(), &cloud, cancel)?;
+                choose(
+                    ctx,
+                    game,
+                    &entry.1.id,
+                    Some(stray.id.clone()),
+                    HeadReason::Branch,
+                )?;
+                return Ok(SyncEvent::Branched {
+                    principal: entry.1.id.clone(),
+                    principal_device: entry.1.device_name.clone(),
+                    other: stray.id,
+                    local_is_principal: false,
+                });
+            }
+            let replaces = played_from
+                .filter(|(_, meta)| !has_children(&cloud.metas(), &meta.id))
+                .map(|(_, meta)| meta.id.clone());
+            let lineage = Lineage { parent, replaces };
+            let meta = push(ctx, game, &local, lineage, session_ended_at, false, false)?;
             choose(ctx, game, &meta.id, current_id, HeadReason::Push)?;
             set_base(ctx, game, &meta.id, &local)?;
             clear_pending(ctx, game)?;
+            if let Some((_, replaced)) = played_from
+                && meta.replaces.is_some()
+            {
+                prune_replaced(&cloud, replaced);
+            }
             Ok(SyncEvent::Pushed { snapshot: meta.id })
         }
         Decision::Pull { snapshot } | Decision::AdoptCloud { snapshot } => {
@@ -509,7 +617,7 @@ fn reconcile_once(
                 ctx,
                 game,
                 &local,
-                Some(parent),
+                Some(parent).into(),
                 session_ended_at,
                 false,
                 false,
@@ -565,7 +673,7 @@ pub fn undo(ctx: &CloudContext, game: &GameTarget) -> CloudResult<SyncEvent> {
     let games = ctx.layout.game_dirs(&game.key);
     let previous = read_heads(&games)
         .into_iter()
-        .filter(|choice| choice.device_id == ctx.device.id.0)
+        .filter(|choice| ctx.device.is_mine(&choice.device_id))
         .max_by_key(|choice| choice.chosen_at)
         .and_then(|choice| choice.previous);
     match previous {
@@ -584,6 +692,7 @@ pub fn last_choice(layout: &CloudLayout, key: &CloudKey) -> Option<HeadChoice> {
 mod tests {
     use super::*;
     use crate::cloud::device::DeviceId;
+    use crate::cloud::lineage::history;
     use crate::cloud::portable::PortablePath;
     use crate::discovery::folders::KnownFolders;
 
@@ -602,10 +711,7 @@ mod tests {
         Pc {
             dir,
             layout,
-            device: LocalDevice {
-                id: DeviceId("desk".into()),
-                name: "Desktop".into(),
-            },
+            device: LocalDevice::new(DeviceId("desk".into()), "Desktop"),
             store: Store::in_memory().unwrap(),
             cache: HashCache::default(),
         }
@@ -787,6 +893,142 @@ mod tests {
         let last = last_choice(&pc.layout, &CloudKey::Steam(7)).unwrap();
         assert_eq!(last.snapshot_id, second);
         assert_eq!(last.reason, HeadReason::Undo);
+    }
+
+    fn save_named(pc: &Pc, name: &str, text: &str) {
+        let path = pc
+            .dir
+            .path()
+            .join("pc")
+            .join("RoamingAppData")
+            .join("Game")
+            .join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+
+    fn pushed(event: SyncEvent) -> String {
+        match event {
+            SyncEvent::Pushed { snapshot } => snapshot,
+            other => panic!("expected push, got {other:?}"),
+        }
+    }
+
+    fn find(pc: &Pc, id: &str) -> SnapshotMeta {
+        snapshots(pc)
+            .into_iter()
+            .find(|meta| meta.id == id)
+            .unwrap()
+    }
+
+    #[test]
+    fn playing_on_the_latest_version_replaces_it() {
+        let pc = pc();
+        let game = target(&pc, GameKind::SteamOriginal);
+        save(&pc, "v1");
+        let first = pushed(reconcile(&ctx(&pc, 100), &game, 100).unwrap());
+        save(&pc, "v2");
+        let second = pushed(reconcile(&ctx(&pc, 200), &game, 200).unwrap());
+        assert_eq!(find(&pc, &second).replaces.as_deref(), Some(first.as_str()));
+        let shown = history(&snapshots(&pc), Some(&second));
+        assert_eq!(shown.len(), 1);
+        assert_eq!(shown[0].id, second);
+    }
+
+    #[test]
+    fn only_one_hidden_previous_is_kept() {
+        let pc = pc();
+        let game = target(&pc, GameKind::SteamOriginal);
+        save(&pc, "v1");
+        let first = pushed(reconcile(&ctx(&pc, 100), &game, 100).unwrap());
+        save(&pc, "v2");
+        let second = pushed(reconcile(&ctx(&pc, 200), &game, 200).unwrap());
+        save(&pc, "v3");
+        let third = pushed(reconcile(&ctx(&pc, 300), &game, 300).unwrap());
+        let ids: Vec<String> = snapshots(&pc).into_iter().map(|meta| meta.id).collect();
+        assert_eq!(ids, vec![second.clone(), third.clone()]);
+        assert!(!ids.contains(&first));
+    }
+
+    #[test]
+    fn playing_from_an_older_version_starts_a_new_line() {
+        let pc = pc();
+        let game = target(&pc, GameKind::SteamOriginal);
+        save(&pc, "v1");
+        let first = pushed(reconcile(&ctx(&pc, 100), &game, 100).unwrap());
+        save(&pc, "v2");
+        let second = pushed(reconcile(&ctx(&pc, 200), &game, 200).unwrap());
+        set_principal(&ctx(&pc, 300), &game, &first, HeadReason::Manual).unwrap();
+        assert_eq!(read_save(&pc), "v1");
+        save(&pc, "v1-other");
+        let other = pushed(reconcile(&ctx(&pc, 400), &game, 400).unwrap());
+        let meta = find(&pc, &other);
+        assert_eq!(meta.parent.as_deref(), Some(first.as_str()));
+        assert_eq!(meta.replaces, None);
+        let shown: Vec<(String, Option<String>)> = history(&snapshots(&pc), Some(&other))
+            .into_iter()
+            .map(|meta| (meta.id, meta.parent))
+            .collect();
+        assert_eq!(
+            shown,
+            vec![
+                (first.clone(), None),
+                (second, Some(first.clone())),
+                (other, Some(first))
+            ]
+        );
+    }
+
+    #[test]
+    fn undo_after_a_session_returns_to_the_replaced_version() {
+        let pc = pc();
+        let game = target(&pc, GameKind::SteamOriginal);
+        save(&pc, "good");
+        let first = pushed(reconcile(&ctx(&pc, 100), &game, 100).unwrap());
+        save(&pc, "bad session");
+        pushed(reconcile(&ctx(&pc, 200), &game, 200).unwrap());
+        undo(&ctx(&pc, 300), &game).unwrap();
+        assert_eq!(read_save(&pc), "good");
+        let last = last_choice(&pc.layout, &CloudKey::Steam(7)).unwrap();
+        assert_eq!(last.snapshot_id, first);
+    }
+
+    #[test]
+    fn a_save_missing_files_becomes_a_parallel_line_instead_of_replacing() {
+        let pc = pc();
+        let game = target(&pc, GameKind::SteamOriginal);
+        save(&pc, "characters");
+        save_named(&pc, "slot.bak", "characters backup");
+        let first = pushed(reconcile(&ctx(&pc, 100), &game, 100).unwrap());
+        std::fs::remove_file(
+            pc.dir
+                .path()
+                .join("pc")
+                .join("RoamingAppData")
+                .join("Game")
+                .join("slot.bak"),
+        )
+        .unwrap();
+        save(&pc, "fresh empty save");
+        let event = reconcile(&ctx(&pc, 200), &game, 200).unwrap();
+        let SyncEvent::Branched {
+            principal,
+            other,
+            local_is_principal,
+            ..
+        } = event
+        else {
+            panic!("expected a split, got {event:?}");
+        };
+        assert_eq!(principal, first);
+        assert!(!local_is_principal);
+        assert_eq!(read_save(&pc), "characters");
+        let stray = find(&pc, &other);
+        assert_eq!(stray.replaces, None);
+        assert_eq!(stray.parent.as_deref(), Some(first.as_str()));
+        let last = last_choice(&pc.layout, &CloudKey::Steam(7)).unwrap();
+        assert_eq!(last.reason, HeadReason::Branch);
+        assert_eq!(last.previous.as_deref(), Some(other.as_str()));
     }
 
     #[test]

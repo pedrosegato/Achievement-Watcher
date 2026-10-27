@@ -203,6 +203,7 @@ fn dedupe(paths: Vec<PathBuf>) -> Vec<PathBuf> {
 
 #[cfg(windows)]
 fn registry_candidates() -> Vec<PathBuf> {
+    use crate::system::registry_string;
     use windows::Win32::System::Registry::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
     use windows::core::w;
 
@@ -227,51 +228,6 @@ fn registry_candidates() -> Vec<PathBuf> {
 #[cfg(not(windows))]
 fn registry_candidates() -> Vec<PathBuf> {
     Vec::new()
-}
-
-#[cfg(windows)]
-fn registry_string(
-    hkey: windows::Win32::System::Registry::HKEY,
-    subkey: windows::core::PCWSTR,
-    value: windows::core::PCWSTR,
-) -> Option<String> {
-    use windows::Win32::System::Registry::{RRF_RT_REG_SZ, RegGetValueW};
-
-    let mut size: u32 = 0;
-    // SAFETY: valid constant strings, size query with no data buffer.
-    let status = unsafe {
-        RegGetValueW(
-            hkey,
-            subkey,
-            value,
-            RRF_RT_REG_SZ,
-            None,
-            None,
-            Some(&mut size),
-        )
-    };
-    if status.is_err() || size < 2 {
-        return None;
-    }
-    let mut buffer = vec![0u16; (size as usize).div_ceil(2)];
-    // SAFETY: `buffer` holds `size` bytes and outlives the call.
-    let status = unsafe {
-        RegGetValueW(
-            hkey,
-            subkey,
-            value,
-            RRF_RT_REG_SZ,
-            None,
-            Some(buffer.as_mut_ptr().cast()),
-            Some(&mut size),
-        )
-    };
-    if status.is_err() {
-        return None;
-    }
-    let len = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
-    let text = String::from_utf16_lossy(&buffer[..len]);
-    (!text.trim().is_empty()).then_some(text)
 }
 
 #[cfg(test)]
