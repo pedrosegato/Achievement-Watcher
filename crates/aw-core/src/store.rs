@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use rusqlite::{Connection, OptionalExtension, Row, Transaction, params};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::parsers::LocalText;
 use crate::platform::{ExternalId, GameImages, Platform, next_synthetic, synthetic_id};
@@ -71,6 +71,44 @@ pub struct ExternalGame {
     pub resolved_at: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnlockState {
+    pub api_name: String,
+    pub unlocked_at: i64,
+    pub detected_at: i64,
+    pub source_id: String,
+    pub playtime_seconds: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgressState {
+    pub api_name: String,
+    pub current: u32,
+    pub max: u32,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameState {
+    pub unlocks: Vec<UnlockState>,
+    pub progress: Vec<ProgressState>,
+    pub playtime_seconds: i64,
+    pub last_played: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudBase {
+    pub game_key: String,
+    pub snapshot_id: String,
+    pub digest: String,
+    pub playtime_seconds: Option<i64>,
+    pub synced_at: i64,
+    pub profile: String,
+}
+
 pub struct Store {
     conn: Connection,
 }
@@ -132,6 +170,18 @@ CREATE TABLE IF NOT EXISTS steam_playtime (
     app_id INTEGER PRIMARY KEY,
     minutes INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS cloud_base (
+    game_key TEXT PRIMARY KEY,
+    snapshot_id TEXT NOT NULL,
+    digest TEXT NOT NULL,
+    playtime_seconds INTEGER,
+    synced_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS steam_cloud (
+    app_id INTEGER PRIMARY KEY,
+    has_cloud INTEGER NOT NULL,
+    checked_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS external_games (
     platform TEXT NOT NULL,
     external_id TEXT NOT NULL COLLATE NOCASE,
@@ -161,6 +211,7 @@ impl Store {
         conn.execute_batch(SCHEMA)?;
         let store = Store { conn };
         store.ensure_column("unlocks", "playtime_seconds", "INTEGER")?;
+        store.ensure_column("cloud_base", "profile", "TEXT NOT NULL DEFAULT ''")?;
         Ok(store)
     }
 
@@ -411,6 +462,159 @@ impl Store {
             }
             Ok(())
         })
+    }
+
+    pub fn game_state(&self, app_id: u32) -> StoreResult<GameState> {
+        let mut stmt = self.conn.prepare(
+            "SELECT api_name, unlocked_at, detected_at, source_id, playtime_seconds FROM unlocks
+             WHERE app_id = ?1 ORDER BY lower(api_name)",
+        )?;
+        let unlocks = stmt
+            .query_map(params![app_id], |row| {
+                Ok(UnlockState {
+                    api_name: row.get(0)?,
+                    unlocked_at: row.get(1)?,
+                    detected_at: row.get(2)?,
+                    source_id: row.get(3)?,
+                    playtime_seconds: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut stmt = self.conn.prepare(
+            "SELECT api_name, current, max FROM progress WHERE app_id = ?1 ORDER BY lower(api_name)",
+        )?;
+        let progress = stmt
+            .query_map(params![app_id], |row| {
+                Ok(ProgressState {
+                    api_name: row.get(0)?,
+                    current: row.get(1)?,
+                    max: row.get(2)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        let (playtime_seconds, last_played) = self
+            .conn
+            .query_row(
+                "SELECT seconds, last_played FROM playtime WHERE app_id = ?1",
+                params![app_id],
+                |row| Ok((row.get::<_, i64>(0)?, Some(row.get::<_, i64>(1)?))),
+            )
+            .optional()?
+            .unwrap_or((0, None));
+        Ok(GameState {
+            unlocks,
+            progress,
+            playtime_seconds,
+            last_played,
+        })
+    }
+
+    pub fn replace_game_state(&self, app_id: u32, state: &GameState) -> StoreResult<()> {
+        self.ensure_game(app_id)?;
+        self.atomic(|conn| {
+            conn.execute("DELETE FROM unlocks WHERE app_id = ?1", params![app_id])?;
+            conn.execute("DELETE FROM progress WHERE app_id = ?1", params![app_id])?;
+            for unlock in &state.unlocks {
+                conn.execute(
+                    "INSERT OR REPLACE INTO unlocks (app_id, api_name, unlocked_at, detected_at, source_id, playtime_seconds)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![
+                        app_id,
+                        unlock.api_name,
+                        unlock.unlocked_at,
+                        unlock.detected_at,
+                        unlock.source_id,
+                        unlock.playtime_seconds
+                    ],
+                )?;
+            }
+            for item in &state.progress {
+                conn.execute(
+                    "INSERT OR REPLACE INTO progress (app_id, api_name, current, max) VALUES (?1, ?2, ?3, ?4)",
+                    params![app_id, item.api_name, item.current, item.max],
+                )?;
+            }
+            conn.execute(
+                "INSERT INTO playtime (app_id, seconds, last_played) VALUES (?1, ?2, COALESCE(?3, 0))
+                 ON CONFLICT(app_id) DO UPDATE SET seconds = ?2, last_played = COALESCE(?3, last_played)",
+                params![app_id, state.playtime_seconds.max(0), state.last_played],
+            )?;
+            Ok(())
+        })
+    }
+
+    pub fn cloud_base(&self, game_key: &str) -> StoreResult<Option<CloudBase>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT game_key, snapshot_id, digest, playtime_seconds, synced_at, profile FROM cloud_base WHERE game_key = ?1",
+                params![game_key],
+                |row| {
+                    Ok(CloudBase {
+                        game_key: row.get(0)?,
+                        snapshot_id: row.get(1)?,
+                        digest: row.get(2)?,
+                        playtime_seconds: row.get(3)?,
+                        synced_at: row.get(4)?,
+                        profile: row.get(5)?,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    pub fn set_cloud_base(&self, base: &CloudBase) -> StoreResult<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO cloud_base (game_key, snapshot_id, digest, playtime_seconds, synced_at, profile)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                base.game_key,
+                base.snapshot_id,
+                base.digest,
+                base.playtime_seconds,
+                base.synced_at,
+                base.profile
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn has_any_cloud_base(&self) -> StoreResult<bool> {
+        Ok(self
+            .conn
+            .query_row("SELECT 1 FROM cloud_base LIMIT 1", [], |_| Ok(()))
+            .optional()?
+            .is_some())
+    }
+
+    pub fn steam_cloud(&self, app_id: u32) -> StoreResult<Option<bool>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT has_cloud FROM steam_cloud WHERE app_id = ?1",
+                params![app_id],
+                |row| row.get::<_, bool>(0),
+            )
+            .optional()?)
+    }
+
+    pub fn set_steam_cloud(&self, app_id: u32, has_cloud: bool, now: i64) -> StoreResult<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO steam_cloud (app_id, has_cloud, checked_at) VALUES (?1, ?2, ?3)",
+            params![app_id, has_cloud, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn game_sources(&self, app_id: u32) -> StoreResult<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT source_id FROM files WHERE app_id = ?1
+             UNION SELECT source_id FROM unlocks WHERE app_id = ?1
+             ORDER BY 1",
+        )?;
+        Ok(stmt
+            .query_map(params![app_id], |row| row.get(0))?
+            .collect::<Result<_, _>>()?)
     }
 
     fn atomic<T>(&self, work: impl FnOnce(&Connection) -> StoreResult<T>) -> StoreResult<T> {
@@ -1266,5 +1470,103 @@ mod tests {
             .unwrap();
         tx.commit().unwrap();
         assert_eq!(s.schema_names(7).unwrap(), vec!["A".to_owned()]);
+    }
+
+    #[test]
+    fn game_state_round_trips_and_replaces() {
+        let s = Store::in_memory().unwrap();
+        s.record_unlock(7, "A", 100, 110, "goldberg").unwrap();
+        s.record_unlock(7, "B", 200, 210, "goldberg").unwrap();
+        s.set_unlock_playtime(7, "A", 42).unwrap();
+        s.update_progress(7, "C", 3, 10).unwrap();
+        s.add_playtime(7, 3600, 500).unwrap();
+        let state = s.game_state(7).unwrap();
+        assert_eq!(state.unlocks.len(), 2);
+        assert_eq!(state.unlocks[0].playtime_seconds, Some(42));
+        assert_eq!(state.progress.len(), 1);
+        assert_eq!(state.playtime_seconds, 3600);
+        assert_eq!(state.last_played, Some(500));
+        let mut fewer = state.clone();
+        fewer.unlocks.truncate(1);
+        fewer.playtime_seconds = 60;
+        s.replace_game_state(7, &fewer).unwrap();
+        assert!(!s.is_unlocked(7, "B").unwrap());
+        assert_eq!(s.aw_playtime_seconds(7).unwrap(), 60);
+        assert_eq!(s.game_state(7).unwrap(), fewer);
+    }
+
+    #[test]
+    fn replace_game_state_creates_rows_for_unknown_game() {
+        let s = Store::in_memory().unwrap();
+        let state = GameState {
+            unlocks: vec![UnlockState {
+                api_name: "A".into(),
+                unlocked_at: 1,
+                detected_at: 2,
+                source_id: "gse".into(),
+                playtime_seconds: None,
+            }],
+            progress: Vec::new(),
+            playtime_seconds: 90,
+            last_played: Some(5),
+        };
+        s.replace_game_state(9, &state).unwrap();
+        assert_eq!(s.game_state(9).unwrap(), state);
+    }
+
+    #[test]
+    fn replace_game_state_leaves_other_games_alone() {
+        let s = Store::in_memory().unwrap();
+        s.record_unlock(7, "A", 100, 110, "goldberg").unwrap();
+        s.record_unlock(8, "A", 100, 110, "goldberg").unwrap();
+        s.add_playtime(8, 30, 1).unwrap();
+        s.replace_game_state(7, &GameState::default()).unwrap();
+        assert!(!s.is_unlocked(7, "A").unwrap());
+        assert!(s.is_unlocked(8, "A").unwrap());
+        assert_eq!(s.aw_playtime_seconds(8).unwrap(), 30);
+    }
+
+    #[test]
+    fn cloud_base_round_trips() {
+        let s = Store::in_memory().unwrap();
+        assert!(!s.has_any_cloud_base().unwrap());
+        let base = CloudBase {
+            game_key: "374320".into(),
+            snapshot_id: "abc".into(),
+            digest: "d".into(),
+            playtime_seconds: Some(10),
+            synced_at: 5,
+            profile: "SteamOriginal|save:<winAppData>/x".into(),
+        };
+        s.set_cloud_base(&base).unwrap();
+        assert_eq!(s.cloud_base("374320").unwrap(), Some(base.clone()));
+        let newer = CloudBase {
+            snapshot_id: "def".into(),
+            ..base
+        };
+        s.set_cloud_base(&newer).unwrap();
+        assert_eq!(s.cloud_base("374320").unwrap(), Some(newer));
+        assert!(s.has_any_cloud_base().unwrap());
+        assert_eq!(s.cloud_base("1").unwrap(), None);
+    }
+
+    #[test]
+    fn steam_cloud_flag_round_trips() {
+        let s = Store::in_memory().unwrap();
+        assert_eq!(s.steam_cloud(374320).unwrap(), None);
+        s.set_steam_cloud(374320, false, 1).unwrap();
+        assert_eq!(s.steam_cloud(374320).unwrap(), Some(false));
+        s.set_steam_cloud(374320, true, 2).unwrap();
+        assert_eq!(s.steam_cloud(374320).unwrap(), Some(true));
+    }
+
+    #[test]
+    fn game_sources_merges_files_and_unlocks() {
+        let s = Store::in_memory().unwrap();
+        s.mark_file_ok("a", "steam", 7, "h", 1, 1).unwrap();
+        s.record_unlock(7, "A", 1, 1, "goldberg").unwrap();
+        s.record_unlock(7, "B", 1, 1, "steam").unwrap();
+        s.record_unlock(8, "A", 1, 1, "gse").unwrap();
+        assert_eq!(s.game_sources(7).unwrap(), vec!["goldberg", "steam"]);
     }
 }

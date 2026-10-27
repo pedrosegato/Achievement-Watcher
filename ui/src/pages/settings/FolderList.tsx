@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { Icon } from "../../components/Icon";
 import { Button } from "../../components/ui/button";
-import { PLACEHOLDERS } from "../../constants";
 import { useI18n } from "../../i18n/useI18n";
+import { pickFolder } from "../../lib/dialog";
 
 interface FolderListProps {
   label: string;
@@ -12,11 +11,9 @@ interface FolderListProps {
 
 export function FolderList({ label, values, onChange }: FolderListProps) {
   const { t } = useI18n();
-  const [draft, setDraft] = useState<string | null>(null);
-  const add = () => {
-    const path = draft?.trim() ?? "";
+  const add = async () => {
+    const path = await pickFolder(label);
     if (path && !values.includes(path)) onChange([...values, path]);
-    setDraft(null);
   };
 
   return (
@@ -43,29 +40,10 @@ export function FolderList({ label, values, onChange }: FolderListProps) {
           </Button>
         </div>
       ))}
-      {draft === null ? (
-        <Button variant="link" size="sm" className="w-max" onClick={() => setDraft("")}>
-          <Icon name="add" size={16} />
-          {t("settings.addFolder")}
-        </Button>
-      ) : (
-        <div className="flex gap-2">
-          <input
-            aria-label={label}
-            value={draft}
-            placeholder={PLACEHOLDERS.gamesFolder}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") add();
-              if (event.key === "Escape") setDraft(null);
-            }}
-            className="flex-1 rounded-card border border-line bg-surface px-2.5 py-1.5 text-[13px] outline-none focus-visible:border-text"
-          />
-          <Button size="sm" variant="primary" onClick={add}>
-            {t("settings.add")}
-          </Button>
-        </div>
-      )}
+      <Button variant="link" size="sm" className="w-max" onClick={() => void add()}>
+        <Icon name="add" size={16} />
+        {t("settings.addFolder")}
+      </Button>
     </div>
   );
 }

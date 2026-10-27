@@ -5,6 +5,8 @@ export const EVENTS = {
   overlayShown: "overlay-shown",
   updateAvailable: "update-available",
   ffmpegProgress: "ffmpeg-progress",
+  cloudChanged: "cloud-changed",
+  playChanged: "play-changed",
 } as const;
 
 export const APP_NAME = "Achievement Watcher";
@@ -83,6 +85,5 @@ export const TIMINGS = {
 } as const;
 
 export const PLACEHOLDERS = {
-  gamesFolder: "C:\\Games",
   ffmpeg: "C:\\ffmpeg\\bin\\ffmpeg.exe",
 } as const;

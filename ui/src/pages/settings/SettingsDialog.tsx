@@ -9,6 +9,7 @@ import { useI18n } from "../../i18n/useI18n";
 import type { SectionProps } from "../../types/ui";
 import { About } from "./sections/About";
 import { Captures } from "./sections/Captures";
+import { Cloud } from "./sections/Cloud";
 import { Games } from "./sections/Games";
 import { General } from "./sections/General";
 import { Notifications } from "./sections/Notifications";
@@ -31,6 +32,7 @@ const TOPICS: Topic[] = [
   },
   { id: "sound", label: "settings.nav.sound", icon: "volume", Section: Sound },
   { id: "games", label: "settings.nav.games", icon: "folder", Section: Games },
+  { id: "cloud", label: "settings.nav.cloud", icon: "cloud", Section: Cloud },
   { id: "captures", label: "settings.nav.captures", icon: "camera", Section: Captures },
   { id: "about", label: "settings.nav.about", icon: "info", Section: About },
 ];
@@ -38,9 +40,10 @@ const TOPICS: Topic[] = [
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  topic?: string;
 }
 
-export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+export function SettingsDialog({ open, onOpenChange, topic = "general" }: SettingsDialogProps) {
   const { t } = useI18n();
 
   return (
@@ -49,7 +52,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         aria-describedby={undefined}
         className="h-[min(720px,calc(100vh-var(--titlebar)-48px))] max-h-none w-[min(980px,calc(100vw-48px))] bg-bg"
       >
-        <SettingsBody />
+        <SettingsBody topic={topic} />
         <DialogClose asChild>
           <button
             type="button"
@@ -64,12 +67,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   );
 }
 
-function SettingsBody() {
+function SettingsBody({ topic }: { topic: string }) {
   const { t } = useI18n();
   const { settings, error, revision, update } = useSettings();
 
   return (
-    <Tabs defaultValue="general" orientation="vertical" className="flex min-h-0 flex-1">
+    <Tabs defaultValue={topic} orientation="vertical" className="flex min-h-0 flex-1">
       <div className="flex w-[210px] shrink-0 flex-col gap-3 border-line border-r bg-surface px-3 py-4">
         <DialogTitle className="px-2.5 font-bold text-[18px]">{t("nav.settings")}</DialogTitle>
         <TabsList aria-label={t("nav.settings")} className="flex-col">

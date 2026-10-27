@@ -4,6 +4,7 @@ use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
+use aw_core::cloud::device::{LocalDevice, default_device_name};
 use aw_core::discovery::detect::DetectConfig;
 use aw_core::discovery::folders::KnownFolders;
 use aw_core::discovery::steam::steam_install_path;
@@ -20,9 +21,11 @@ use tauri::{App, AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 use tracing_appender::non_blocking::WorkerGuard;
 
+use crate::cloud::{self, CloudHandle, CloudJob};
 use crate::diag;
 use crate::games::{self, RunningGames};
 use crate::i18n::{self, keys, text, text_with};
+use crate::launch::PlayFlow;
 use crate::overlay;
 use crate::popup::{self, DEFAULT_ICON, PopupKind, PopupRequest, classify};
 use crate::popup_queue::PopupQueue;
@@ -34,6 +37,7 @@ use crate::video::{self, VideoState};
 pub const MAIN_LABEL: &str = "main";
 const TRAY_ID: &str = "main";
 pub const GAMES_CHANGED: &str = "games-changed";
+pub const PLAY_CHANGED: &str = "play-changed";
 pub const SETTINGS_CHANGED: &str = "settings-changed";
 pub const SCAN_PROGRESS: &str = "scan-progress";
 const QUICK_META_TIMEOUT: Duration = Duration::from_secs(3);
@@ -49,6 +53,7 @@ pub struct AppPaths {
     pub logs_dir: PathBuf,
     pub builtin_presets: PathBuf,
     pub builtin_sounds: PathBuf,
+    pub device_file: PathBuf,
 }
 
 const MAX_PLATINUM_ICONS: usize = 64;
@@ -67,6 +72,11 @@ pub struct AppState {
     pub hotkey_error: Mutex<Option<String>>,
     pub video: VideoState,
     pub updater: UpdaterState,
+    pub device: Mutex<LocalDevice>,
+    pub cloud: CloudHandle,
+    pub launching: Mutex<HashSet<u32>>,
+    pub exiting: Mutex<HashSet<u32>>,
+    pub plays: Mutex<HashMap<u32, PlayFlow>>,
 }
 
 pub enum MetaJob {
@@ -100,6 +110,18 @@ impl AppState {
 
     pub fn running(&self) -> MutexGuard<'_, RunningGames> {
         lock(&self.running)
+    }
+
+    pub fn launching(&self) -> MutexGuard<'_, HashSet<u32>> {
+        lock(&self.launching)
+    }
+
+    pub fn exiting(&self) -> MutexGuard<'_, HashSet<u32>> {
+        lock(&self.exiting)
+    }
+
+    pub fn plays(&self) -> MutexGuard<'_, HashMap<u32, PlayFlow>> {
+        lock(&self.plays)
     }
 
     pub fn set_game_pids(&self, pids: &HashMap<u32, u32>) {
@@ -163,6 +185,20 @@ impl AppState {
     }
 
     pub fn apply_settings(&self, app: &AppHandle, new: Settings) -> Result<(), String> {
+        let old = self.settings_snapshot();
+        let new = self.apply_inner(app, new)?;
+        self.cloud.send(CloudJob::SettingsChanged {
+            old: Box::new(old),
+            new: Box::new(new),
+        });
+        Ok(())
+    }
+
+    pub fn apply_cloud_settings(&self, app: &AppHandle, new: Settings) -> Result<(), String> {
+        self.apply_inner(app, new).map(|_| ())
+    }
+
+    fn apply_inner(&self, app: &AppHandle, new: Settings) -> Result<Settings, String> {
         let new = new.sanitized();
         let old = self.settings_snapshot();
         new.save(&self.paths.settings_file)
@@ -196,7 +232,7 @@ impl AppState {
             self.with_watcher(|w| w.update_settings(core_settings(&new)));
         }
         let _ = app.emit(SETTINGS_CHANGED, &new);
-        Ok(())
+        Ok(new)
     }
 }
 
@@ -252,6 +288,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         logs_dir: data_dir.join("logs"),
         builtin_presets: builtin_dir(app, "presets"),
         builtin_sounds: builtin_dir(app, "sounds"),
+        device_file: data_dir.join("device.json"),
         data_dir,
     };
     for dir in [
@@ -272,20 +309,16 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             tracing::warn!("cannot save default settings: {error}");
         }
     }
+    let device = LocalDevice::load_or_create(&paths.device_file, &default_device_name())?;
     let read_store = Store::open(&paths.db_file)?;
     let engine_store = Store::open(&paths.db_file)?;
     let folders = KnownFolders::from_system().unwrap_or_else(|error| {
         tracing::error!("no known folder is available: {error}");
-        KnownFolders {
-            public_documents: None,
-            roaming_app_data: None,
-            program_data: None,
-            local_app_data: None,
-            documents: None,
-        }
+        KnownFolders::default()
     });
 
     let popup_queue = Arc::new(PopupQueue::new());
+    let (cloud_tx, cloud_rx) = channel::<CloudJob>();
     let (meta_tx, meta_rx) = channel::<MetaJob>();
     let preset = settings.preset.clone();
     let core = core_settings(&settings);
@@ -303,6 +336,11 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         hotkey_error: Mutex::new(None),
         video: VideoState::default(),
         updater: UpdaterState::default(),
+        device: Mutex::new(device),
+        cloud: CloudHandle::new(cloud_tx.clone()),
+        launching: Mutex::new(HashSet::new()),
+        exiting: Mutex::new(HashSet::new()),
+        plays: Mutex::new(HashMap::new()),
     });
 
     let handle = app.handle().clone();
@@ -329,6 +367,11 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     });
 
     video::prepare(&handle);
+    spawn_named("aw-cloud", {
+        let handle = handle.clone();
+        move || cloud::run_cloud_worker(handle, cloud_rx, cloud_tx)
+    });
+    app.state::<AppState>().cloud.send(CloudJob::Startup);
     spawn_named("aw-processes", {
         let handle = handle.clone();
         move || games::run_process_monitor(handle)

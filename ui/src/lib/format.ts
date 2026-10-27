@@ -4,6 +4,9 @@ const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 3600;
 const WHOLE_HOURS_FROM = 100;
 const SMALL_PERCENT = 1;
+const BYTE_STEP = 1024;
+const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB"] as const;
+const ONE_DECIMAL_BELOW = 10;
 
 const toDate = (seconds: number) => new Date(seconds * 1000);
 
@@ -54,6 +57,17 @@ export function formatPercent(value: number, locale: Locale): string {
   return `${formatNumber(locale, value, 0, value < SMALL_PERCENT ? 2 : 1)}%`;
 }
 
+export function formatBytes(bytes: number, locale: Locale): string {
+  let value = Math.max(0, bytes);
+  let unit = 0;
+  while (value >= BYTE_STEP && unit < BYTE_UNITS.length - 1) {
+    value /= BYTE_STEP;
+    unit += 1;
+  }
+  const decimals = unit > 0 && value < ONE_DECIMAL_BELOW ? 1 : 0;
+  return `${formatNumber(locale, value, 0, decimals)} ${BYTE_UNITS[unit]}`;
+}
+
 export function formatHours(seconds: number, locale: Locale): string {
   if (seconds < SECONDS_PER_HOUR) {
     return `${Math.max(1, Math.round(seconds / SECONDS_PER_MINUTE))} min`;
@@ -76,4 +90,24 @@ export function formatTime(seconds: number, locale: Locale): string {
 
 export function formatDateTime(seconds: number, locale: Locale): string {
   return `${formatDay(seconds, locale)}, ${formatTime(seconds, locale)}`;
+}
+
+const MS_PER_DAY = 86_400_000;
+const relativeDays = new Map<string, Intl.RelativeTimeFormat>();
+
+function startOfDay(seconds: number): number {
+  const date = toDate(seconds);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+export function formatWhen(seconds: number, locale: Locale, now: number): string {
+  const days = Math.round((startOfDay(now) - startOfDay(seconds)) / MS_PER_DAY);
+  if (days !== 0 && days !== 1) return formatDateTime(seconds, locale);
+  let relative = relativeDays.get(locale);
+  if (!relative) {
+    relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+    relativeDays.set(locale, relative);
+  }
+  const word = relative.format(-days, "day");
+  return `${word.charAt(0).toLocaleUpperCase(locale)}${word.slice(1)}, ${formatTime(seconds, locale)}`;
 }

@@ -42,6 +42,11 @@
   --rim-lo: rgba(255, 180, 60, 0.12);
   --inner: rgba(255, 205, 110, 0.55);
   --plat-glow: rgba(255, 180, 60, 0.16);
+  --play: #26803a;
+  --play-hover: #217134;
+  --stop: #1a6fbf;
+  --stop-hover: #155c9f;
+  --on-accent: #ffffff;
 }
 
 :root[data-theme="light"] {

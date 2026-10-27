@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { TIMINGS } from "../constants";
+import { EVENTS, TIMINGS } from "../constants";
 import { useI18n } from "../i18n/useI18n";
 import { api, errorMessage } from "../lib/commands";
 import type { Settings } from "../types/domain";
 import type { SettingsState, UpdateSetting } from "../types/ui";
+import { useTauriEvent } from "./useTauriEvent";
 
 export function useSettings(): SettingsState {
   const { refresh } = useI18n();
@@ -17,6 +18,8 @@ export function useSettings(): SettingsState {
     current.current = next;
     setSettings(next);
   }, []);
+
+  useTauriEvent<Settings>(EVENTS.settingsChanged, apply);
 
   useEffect(() => {
     api

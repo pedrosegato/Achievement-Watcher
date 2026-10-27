@@ -12,6 +12,8 @@ const buttonVariants = cva(
         secondary: "border border-line bg-surface text-text hover:bg-surface-2",
         ghost: "text-muted hover:bg-surface-2 hover:text-text",
         link: "px-0 text-muted underline-offset-4 hover:text-text hover:underline",
+        play: "bg-play text-on-accent hover:bg-play-hover",
+        stop: "bg-stop text-on-accent hover:bg-stop-hover",
       },
       size: {
         sm: "h-8 px-3",

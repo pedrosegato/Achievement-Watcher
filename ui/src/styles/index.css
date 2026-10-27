@@ -12,6 +12,11 @@
   --color-text: var(--text);
   --color-muted: var(--muted);
   --color-dim: var(--dim);
+  --color-play: var(--play);
+  --color-play-hover: var(--play-hover);
+  --color-stop: var(--stop);
+  --color-stop-hover: var(--stop-hover);
+  --color-on-accent: var(--on-accent);
   --radius-card: 4px;
   --radius-tag: 3px;
   --font-sans: "Schibsted Grotesk", system-ui, sans-serif;

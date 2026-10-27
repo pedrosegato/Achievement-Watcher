@@ -4,6 +4,7 @@ pub mod folders;
 pub mod gamedirs;
 pub mod gamediscovery;
 pub mod gamefolder;
+pub mod launch;
 pub mod lumaplay;
 pub mod markers;
 pub mod running;

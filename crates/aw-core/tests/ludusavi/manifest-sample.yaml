@@ -1,0 +1,172 @@
+---
+'! That Bastard Is Trying To Steal Our Gold !':
+  installDir:
+    '! That Bastard Is Trying To Steal Our Gold !': {}
+  launch:
+    <base>/TDTTSOG.exe:
+    - when:
+      - os: windows
+        store: steam
+    <base>/TDTTSOGLinux.x86:
+    - when:
+      - bit: 32
+        os: linux
+        store: steam
+    <base>/TDTTSOGLinux.x86_64:
+    - when:
+      - bit: 64
+        os: linux
+        store: steam
+  registry:
+    HKEY_CURRENT_USER/SOFTWARE/WTFOMGames/That Dick Trying To Steal Our Gold:
+      tags:
+      - config
+      - save
+  steam:
+    id: 449940
+'!Anyway!':
+  cloud:
+    steam: true
+  files:
+    <winLocalAppData>/anyway:
+      tags:
+      - save
+      when:
+      - os: windows
+  id:
+    steamExtra:
+    - 867990
+  installDir:
+    Anyway: {}
+  steam:
+    id: 866510
+(the) Gnorp Apologue:
+  cloud:
+    steam: true
+  files:
+    <base>/options.ron:
+      tags:
+      - config
+      when:
+      - store: steam
+    <base>/saves:
+      tags:
+      - save
+      when:
+      - store: steam
+    <winAppData>/Gnorp/Apologue/Saves:
+      tags:
+      - save
+      when:
+      - os: windows
+    <winAppData>/Gnorp/Apologue/options.ron:
+      tags:
+      - config
+      when:
+      - os: windows
+  id:
+    lutris: the-gnorp-apologue
+  installDir:
+    Gnorp: {}
+  launch:
+    <base>/(the) Gnorp Apologue.exe:
+    - when:
+      - store: steam
+  steam:
+    id: 1473350
+-KLAUS-:
+  alias: Klaus
+.hack//G.U. Last Recode:
+  files:
+    <root>/userdata/<storeUserId>/525480/remote/savedata:
+      tags:
+      - save
+      when:
+      - os: windows
+        store: steam
+  id:
+    steamExtra:
+    - 746970
+  installDir:
+    hackGU: {}
+  launch:
+    <base>/hackGU.exe:
+    - when:
+      - os: windows
+        store: steam
+  steam:
+    id: 525480
+'Dark Souls II: Scholar of the First Sin':
+  files:
+    <winAppData>/DarkSoulsII/<storeUserId>/DS2SOFS0000.sl2:
+      tags:
+      - save
+      when:
+      - os: windows
+    <winAppData>/DarkSoulsII/GraphicsConfig_SOFS.xml:
+      tags:
+      - config
+      when:
+      - os: windows
+  id:
+    lutris: dark-souls-ii-scholar-of-the-first-sin
+  installDir:
+    Dark Souls II Scholar of the First Sin: {}
+  launch:
+    <base>/Game/DarkSoulsII.exe:
+    - when:
+      - store: steam
+      workingDir: <base>/Game
+  steam:
+    id: 335300
+Dark Souls III:
+  files:
+    <winAppData>/DarkSoulsIII/<storeUserId>:
+      tags:
+      - save
+      when:
+      - os: windows
+    <winAppData>/DarkSoulsIII/GraphicsConfig.xml:
+      tags:
+      - config
+      when:
+      - os: windows
+  id:
+    lutris: dark-souls-iii
+  installDir:
+    DARK SOULS III: {}
+  launch:
+    <base>/Game/DarkSoulsIII.exe:
+    - when:
+      - store: steam
+      workingDir: <base>/Game
+  steam:
+    id: 374320
+Elden Ring:
+  cloud:
+    steam: true
+  files:
+    <winAppData>/EldenRing/<storeUserId>:
+      tags:
+      - save
+      when:
+      - os: windows
+    <winAppData>/EldenRing/GraphicsConfig.xml:
+      tags:
+      - config
+      when:
+      - os: windows
+  id:
+    lutris: elden-ring
+    steamExtra:
+    - 2778580
+    - 2778590
+  installDir:
+    ELDEN RING: {}
+  launch:
+    <base>/Game/start_protected_game.exe:
+    - when:
+      - store: steam
+      workingDir: <base>/Game
+  steam:
+    id: 1245620

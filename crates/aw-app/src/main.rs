@@ -2,10 +2,13 @@
 
 mod app;
 mod art;
+mod cloud;
+mod cloud_commands;
 mod commands;
 mod diag;
 mod games;
 mod i18n;
+mod launch;
 mod loopback;
 mod overlay;
 mod popup;
@@ -37,6 +40,7 @@ fn main() {
                 .args(["--autostart"])
                 .build(),
         )
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .register_uri_scheme_protocol("aw", protocol::handle)
@@ -67,6 +71,21 @@ fn main() {
             commands::update_status,
             commands::check_update,
             commands::install_update,
+            cloud_commands::cloud_overview,
+            launch::play_state,
+            launch::play_game,
+            launch::play_anyway,
+            launch::cancel_play,
+            launch::stop_game,
+            launch::set_launch_exe,
+            launch::launch_choice,
+            cloud_commands::set_cloud_folder,
+            cloud_commands::set_device_name,
+            cloud_commands::cloud_game,
+            cloud_commands::set_game_sync,
+            cloud_commands::set_game_save_path,
+            cloud_commands::cloud_undo,
+            cloud_commands::cloud_set_principal,
         ])
         .setup(app::setup)
         .on_window_event(|window, event| {

@@ -1,9 +1,19 @@
+use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_PRESET: &str = "aw-minimal";
+pub const LOCAL_KEYS: &[&str] = &[
+    "extraGameRoots",
+    "extraGameDirs",
+    "cloudFolder",
+    "screenshotDir",
+    "videoDir",
+    "ffmpegPath",
+    "autostart",
+];
 const VIDEO_BEFORE: (u32, u32) = (5, 60);
 const VIDEO_AFTER_MAX: u32 = 15;
 const VIDEO_FPS: [u32; 3] = [30, 60, 120];
@@ -96,6 +106,26 @@ pub struct Settings {
     pub hide_hidden_achievements: bool,
     pub ui_language: String,
     pub theme: Theme,
+    pub cloud_folder: Option<PathBuf>,
+    pub game_sync: BTreeMap<String, GameSyncPref>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct GameSyncPref {
+    pub enabled: Option<bool>,
+    pub save_path: Option<String>,
+}
+
+pub fn keep_backend_fields(mut incoming: Settings, current: &Settings) -> Settings {
+    incoming.cloud_folder.clone_from(&current.cloud_folder);
+    incoming.game_sync.clone_from(&current.game_sync);
+    incoming
+}
+
+pub fn synced_view(settings: &Settings) -> BTreeMap<String, serde_json::Value> {
+    let value = serde_json::to_value(settings).unwrap_or(serde_json::Value::Null);
+    aw_core::cloud::keyed::flatten(&value, LOCAL_KEYS)
 }
 
 impl Default for Settings {
@@ -132,6 +162,8 @@ impl Default for Settings {
             hide_hidden_achievements: true,
             ui_language: crate::i18n::AUTO.into(),
             theme: Theme::System,
+            cloud_folder: None,
+            game_sync: BTreeMap::new(),
         }
     }
 }
@@ -338,5 +370,81 @@ mod tests {
         assert_eq!(loaded.theme, Theme::Light);
         assert_eq!(loaded.position, Position::MiddleRight);
         assert_eq!(Position::MiddleLeft.as_str(), "middle-left");
+    }
+
+    #[test]
+    fn cloud_folder_and_game_sync_default_empty() {
+        let defaults = Settings::default();
+        assert_eq!(defaults.cloud_folder, None);
+        assert!(defaults.game_sync.is_empty());
+    }
+
+    #[test]
+    fn old_settings_file_without_new_fields_loads() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        std::fs::write(&path, r#"{"preset":"aw-minimal","sound":false}"#).unwrap();
+        let (settings, first_run) = Settings::load(&path);
+        assert!(!first_run);
+        assert!(!settings.sound);
+        assert_eq!(settings.cloud_folder, None);
+        assert!(settings.game_sync.is_empty());
+    }
+
+    #[test]
+    fn synced_view_excludes_local_keys() {
+        let settings = Settings {
+            cloud_folder: Some(PathBuf::from("D:/cloud")),
+            extra_game_dirs: vec![PathBuf::from("C:/games")],
+            ..Settings::default()
+        };
+        let view = synced_view(&settings);
+        for key in LOCAL_KEYS {
+            assert!(!view.contains_key(*key), "{key}");
+        }
+        assert!(view.contains_key("preset"));
+    }
+
+    #[test]
+    fn game_sync_pref_round_trips() {
+        let mut settings = Settings::default();
+        settings.game_sync.insert(
+            "374320".into(),
+            GameSyncPref {
+                enabled: Some(true),
+                save_path: Some("<winAppData>/DarkSoulsIII/*".into()),
+            },
+        );
+        let view = synced_view(&settings);
+        assert_eq!(
+            view["gameSync.374320"],
+            serde_json::json!({"enabled": true, "savePath": "<winAppData>/DarkSoulsIII/*"})
+        );
+        let json = serde_json::to_string(&settings).unwrap();
+        let back: Settings = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, settings);
+    }
+
+    #[test]
+    fn ui_save_keeps_backend_owned_cloud_fields() {
+        let mut current = Settings {
+            cloud_folder: Some(PathBuf::from("D:/OneDrive/AchievementWatcher")),
+            ..Settings::default()
+        };
+        current.game_sync.insert(
+            "7".into(),
+            GameSyncPref {
+                enabled: Some(true),
+                save_path: None,
+            },
+        );
+        let stale = Settings {
+            sound: false,
+            ..Settings::default()
+        };
+        let merged = keep_backend_fields(stale, &current);
+        assert!(!merged.sound);
+        assert_eq!(merged.cloud_folder, current.cloud_folder);
+        assert_eq!(merged.game_sync, current.game_sync);
     }
 }

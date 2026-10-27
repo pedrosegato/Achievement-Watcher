@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { formatDateTime, formatDay, formatHours, formatPercent } from "./format";
+import {
+  formatBytes,
+  formatDateTime,
+  formatDay,
+  formatHours,
+  formatPercent,
+  formatWhen,
+} from "./format";
 
 const SAMPLE = 1775507489;
 
@@ -58,5 +65,27 @@ describe("formatter reuse", () => {
     }
     expect(dates).not.toHaveBeenCalled();
     expect(numbers).not.toHaveBeenCalled();
+  });
+});
+
+describe("formatBytes", () => {
+  it("uses binary units and the locale decimal", () => {
+    expect(formatBytes(52428800, "pt-BR")).toBe("50 MB");
+    expect(formatBytes(1536, "en")).toBe("1.5 KB");
+    expect(formatBytes(1536, "pt-BR")).toBe("1,5 KB");
+    expect(formatBytes(512, "en")).toBe("512 B");
+    expect(formatBytes(3 * 1024 ** 3, "en")).toBe("3 GB");
+  });
+});
+
+describe("formatWhen", () => {
+  it("says today and yesterday by name", () => {
+    expect(formatWhen(SAMPLE, "pt-BR", SAMPLE + 600)).toBe("Hoje, 20:31");
+    expect(formatWhen(SAMPLE, "en", SAMPLE + 600)).toBe("Today, 8:31 PM");
+    expect(formatWhen(SAMPLE, "pt-BR", SAMPLE + 86_400)).toBe("Ontem, 20:31");
+  });
+
+  it("falls back to the full date for older moments", () => {
+    expect(formatWhen(SAMPLE, "pt-BR", SAMPLE + 5 * 86_400)).toBe("6 abr 2026, 20:31");
   });
 });

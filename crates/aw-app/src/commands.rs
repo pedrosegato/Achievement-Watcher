@@ -395,6 +395,7 @@ pub fn save_settings(
     state: State<'_, AppState>,
     settings: Settings,
 ) -> Result<Settings, String> {
+    let settings = crate::settings::keep_backend_fields(settings, &state.settings_snapshot());
     state.apply_settings(&app, settings)?;
     Ok(state.settings_snapshot())
 }

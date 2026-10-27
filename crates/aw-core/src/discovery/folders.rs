@@ -10,13 +10,17 @@ pub enum Base {
     Documents,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct KnownFolders {
     pub public_documents: Option<PathBuf>,
     pub roaming_app_data: Option<PathBuf>,
     pub program_data: Option<PathBuf>,
     pub local_app_data: Option<PathBuf>,
     pub documents: Option<PathBuf>,
+    pub local_app_data_low: Option<PathBuf>,
+    pub profile: Option<PathBuf>,
+    pub public: Option<PathBuf>,
+    pub windows: Option<PathBuf>,
 }
 
 impl KnownFolders {
@@ -31,6 +35,10 @@ impl KnownFolders {
             program_data: Some(root.join("ProgramData")),
             local_app_data: Some(root.join("LocalAppData")),
             documents: Some(root.join("Documents")),
+            local_app_data_low: Some(root.join("LocalAppDataLow")),
+            profile: Some(root.join("Profile")),
+            public: Some(root.join("Public")),
+            windows: Some(root.join("Windows")),
         }
     }
 
@@ -48,8 +56,9 @@ impl KnownFolders {
 #[cfg(windows)]
 fn from_system_impl() -> io::Result<KnownFolders> {
     use windows::Win32::UI::Shell::{
-        FOLDERID_Documents, FOLDERID_LocalAppData, FOLDERID_ProgramData, FOLDERID_PublicDocuments,
-        FOLDERID_RoamingAppData,
+        FOLDERID_Documents, FOLDERID_LocalAppData, FOLDERID_LocalAppDataLow, FOLDERID_Profile,
+        FOLDERID_ProgramData, FOLDERID_Public, FOLDERID_PublicDocuments, FOLDERID_RoamingAppData,
+        FOLDERID_Windows,
     };
 
     let ids = [
@@ -58,6 +67,10 @@ fn from_system_impl() -> io::Result<KnownFolders> {
         &FOLDERID_ProgramData,
         &FOLDERID_LocalAppData,
         &FOLDERID_Documents,
+        &FOLDERID_LocalAppDataLow,
+        &FOLDERID_Profile,
+        &FOLDERID_Public,
+        &FOLDERID_Windows,
     ];
     let mut errors = Vec::new();
     let [
@@ -66,6 +79,10 @@ fn from_system_impl() -> io::Result<KnownFolders> {
         program_data,
         local_app_data,
         documents,
+        local_app_data_low,
+        profile,
+        public,
+        windows,
     ] = ids.map(|id| known_folder(id).map_err(|error| errors.push(error)).ok());
     if errors.len() == ids.len() {
         return Err(errors.remove(0));
@@ -76,6 +93,10 @@ fn from_system_impl() -> io::Result<KnownFolders> {
         program_data,
         local_app_data,
         documents,
+        local_app_data_low,
+        profile,
+        public,
+        windows,
     })
 }
 

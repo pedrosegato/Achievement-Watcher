@@ -17,4 +17,5 @@ Achievement Watcher is licensed under the [LGPL-3.0 License](./LICENSE).
 - **Schibsted Grotesk** – SIL Open Font License 1.1, see `ui/public/fonts/OFL.txt`
 - **Ubisoft achievement ids** – matching rule adapted from [PSerban93/Achievements](https://github.com/PSerban93/Achievements), MIT
 - **Game titles and artwork for non-Steam games** – from GOG's public game database (gamesdb.gog.com), © their respective owners
+- **Game save locations** – from [ludusavi-manifest](https://github.com/mtkennerly/ludusavi-manifest) (MIT, © Matthew T. Kennerly), data from [PCGamingWiki](https://www.pcgamingwiki.com) (CC BY-NC-SA 3.0); the test fixture `crates/aw-core/tests/ludusavi/manifest-sample.yaml` is an excerpt of it
 - Rust and npm libraries are used under their own licenses (MIT, Apache-2.0 and compatible)

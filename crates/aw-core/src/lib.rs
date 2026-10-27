@@ -1,3 +1,4 @@
+pub mod cloud;
 pub mod discovery;
 pub mod engine;
 pub mod fileio;

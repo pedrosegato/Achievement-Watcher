@@ -23,6 +23,26 @@ export const queries = {
     queryOptions({ queryKey: ["hotkey-error", revision], queryFn: api.hotkeyError }),
   updateStatus: () =>
     queryOptions({ queryKey: ["update-status"], queryFn: api.updateStatus, staleTime: 0 }),
+  cloudOverview: () =>
+    queryOptions({ queryKey: ["cloud-overview"], queryFn: api.cloudOverview, staleTime: 0 }),
+  cloudGame: (appId: number) =>
+    queryOptions({
+      queryKey: ["cloud-game", appId],
+      queryFn: () => api.cloudGame(appId),
+      staleTime: 0,
+    }),
+  launchChoice: (appId: number) =>
+    queryOptions({
+      queryKey: ["launch-choice", appId],
+      queryFn: () => api.launchChoice(appId),
+      staleTime: 0,
+    }),
+  playState: (appId: number) =>
+    queryOptions({
+      queryKey: ["play-state", appId],
+      queryFn: () => api.playState(appId),
+      staleTime: 0,
+    }),
 };
 
 export function invalidateGames(client: QueryClient): Promise<unknown> {

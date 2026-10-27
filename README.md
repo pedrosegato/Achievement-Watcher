@@ -21,6 +21,7 @@ Install it, forget about it: on first start it finds every game and achievement 
 - **Screenshots** to `Pictures\<Game>\<Achievement>.png` and optional **video clips** of the moments before an unlock (ffmpeg is downloaded only if you turn it on).
 - **English and Portuguese** interface, automatic updates, and a diagnostics page with a one-click export.
 - **Missing achievement report**: one click in a game's achievement list zips the files it reads and what it found in them, ready to attach to an issue.
+- **Cloud save**: point the app at a folder inside OneDrive, Google Drive or Dropbox once and it keeps every game's save (and, for emulator games, achievements and playtime) there, versioned. After a format or on another PC it brings everything back on its own. Nothing is ever deleted: every overwrite keeps a snapshot you can return to, and games that already have Steam Cloud stay off by default. Save locations come from [ludusavi-manifest](https://github.com/mtkennerly/ludusavi-manifest) and [PCGamingWiki](https://www.pcgamingwiki.com).
 - **Offline friendly**: names, descriptions and icons come from Steam's public API without a key and are cached on disk.
 
 ## Supported emulators

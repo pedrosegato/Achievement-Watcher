@@ -1,11 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  CloudGameView,
+  CloudOverview,
   Diagnostics,
   FfmpegStatus,
   GameDetail,
   GameRow,
+  LaunchChoice,
   Locale,
   LocaleInfo,
+  PlayResponse,
+  PlayState,
   PresetInfo,
   PreviewKind,
   Settings,
@@ -42,6 +47,21 @@ const COMMANDS = {
   installUpdate: "install_update",
   uiLocale: "ui_locale",
   supportedLocales: "supported_locales",
+  cloudOverview: "cloud_overview",
+  setCloudFolder: "set_cloud_folder",
+  setDeviceName: "set_device_name",
+  cloudGame: "cloud_game",
+  setGameSync: "set_game_sync",
+  setGameSavePath: "set_game_save_path",
+  cloudUndo: "cloud_undo",
+  cloudSetPrincipal: "cloud_set_principal",
+  playState: "play_state",
+  playGame: "play_game",
+  playAnyway: "play_anyway",
+  cancelPlay: "cancel_play",
+  stopGame: "stop_game",
+  setLaunchExe: "set_launch_exe",
+  launchChoice: "launch_choice",
 } as const;
 
 export const api = {
@@ -73,6 +93,26 @@ export const api = {
   installUpdate: () => invoke<void>(COMMANDS.installUpdate),
   uiLocale: () => invoke<Locale>(COMMANDS.uiLocale),
   supportedLocales: () => invoke<LocaleInfo[]>(COMMANDS.supportedLocales),
+  cloudOverview: () => invoke<CloudOverview>(COMMANDS.cloudOverview),
+  setCloudFolder: (path: string | null) => invoke<void>(COMMANDS.setCloudFolder, { path }),
+  setDeviceName: (name: string) => invoke<void>(COMMANDS.setDeviceName, { name }),
+  cloudGame: (appId: number) => invoke<CloudGameView>(COMMANDS.cloudGame, { appId }),
+  setGameSync: (appId: number, enabled: boolean) =>
+    invoke<void>(COMMANDS.setGameSync, { appId, enabled }),
+  setGameSavePath: (appId: number, path: string | null) =>
+    invoke<void>(COMMANDS.setGameSavePath, { appId, path }),
+  cloudUndo: (appId: number) => invoke<void>(COMMANDS.cloudUndo, { appId }),
+  cloudSetPrincipal: (appId: number, snapshotId: string) =>
+    invoke<void>(COMMANDS.cloudSetPrincipal, { appId, snapshotId }),
+  playState: (appId: number) => invoke<PlayState>(COMMANDS.playState, { appId }),
+  playGame: (appId: number, confirmedElsewhere: boolean) =>
+    invoke<PlayResponse>(COMMANDS.playGame, { appId, confirmedElsewhere }),
+  playAnyway: (appId: number) => invoke<void>(COMMANDS.playAnyway, { appId }),
+  cancelPlay: (appId: number) => invoke<void>(COMMANDS.cancelPlay, { appId }),
+  stopGame: (appId: number) => invoke<void>(COMMANDS.stopGame, { appId }),
+  setLaunchExe: (appId: number, path: string | null) =>
+    invoke<void>(COMMANDS.setLaunchExe, { appId, path }),
+  launchChoice: (appId: number) => invoke<LaunchChoice>(COMMANDS.launchChoice, { appId }),
 };
 
 export function errorMessage(error: unknown): string {

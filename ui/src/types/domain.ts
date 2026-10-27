@@ -126,6 +126,68 @@ export interface Settings {
   hideHiddenAchievements: boolean;
   uiLanguage: UiLanguage;
   theme: Theme;
+  cloudFolder: string | null;
+  gameSync: Record<string, GameSyncPref>;
+}
+
+export interface GameSyncPref {
+  enabled: boolean | null;
+  savePath: string | null;
+}
+
+export type DefaultSync = "on" | "steamCloud" | "unknown";
+export type CloudFileState = "inCloud" | "inFolder";
+export type HeadReason = "push" | "restore" | "branch" | "manual" | "undo";
+export type CloudLocated = "found" | "notFound" | "registry" | "unsupported" | "waitingManifest";
+
+export interface CloudGameSize {
+  appId: number | null;
+  key: string;
+  name: string;
+  bytes: number;
+}
+
+export interface CloudOverview {
+  folder: string | null;
+  folderMissing: boolean;
+  deviceName: string;
+  suggestions: string[];
+  totalBytes: number;
+  games: CloudGameSize[];
+  manifestReady: boolean;
+  lastError: string | null;
+}
+
+export interface LastAction {
+  reason: HeadReason;
+  at: number;
+  deviceName: string;
+  canUndo: boolean;
+}
+
+export interface SnapshotView {
+  id: string;
+  parent: string | null;
+  createdAt: number;
+  deviceName: string;
+  playtimeSeconds: number | null;
+  unlocked: number | null;
+  isPrincipal: boolean;
+  foundOnDevice: boolean;
+}
+
+export interface CloudGameView {
+  key: string | null;
+  enabled: boolean;
+  default: DefaultSync;
+  located: CloudLocated;
+  paths: string[];
+  oversize: boolean;
+  state: CloudFileState | null;
+  lastSnapshotAt: number | null;
+  openElsewhere: string | null;
+  lastAction: LastAction | null;
+  snapshots: SnapshotView[];
 }
 
 export interface PresetInfo {
@@ -215,4 +277,25 @@ export interface UpdateStatus {
   busy: boolean;
   error: string | null;
   checkedAt: number | null;
+}
+
+export type PlayState =
+  | { type: "idle"; needsExe: boolean }
+  | { type: "syncing"; stuck: boolean }
+  | { type: "launching" }
+  | { type: "running" }
+  | { type: "exiting" }
+  | { type: "failed"; reason: string }
+  | { type: "openElsewhere"; device: string; since: number };
+
+export type PlayResponse =
+  | { type: "started" }
+  | { type: "openElsewhere"; device: string; since: number }
+  | { type: "needsExe" }
+  | { type: "alreadyRunning" };
+
+export interface LaunchChoice {
+  exe: string | null;
+  chosen: boolean;
+  steam: boolean;
 }

@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
+use aw_core::discovery::launch::is_helper_exe;
 use aw_core::discovery::running::{game_root_for_exe, is_system_exe, list_processes, match_known};
 use aw_core::discovery::steam::{
     localconfig_files, localconfig_playtimes, normalize_for_compare, steam_install_path,
@@ -10,6 +11,7 @@ use aw_core::watcher::unix_now;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::app::{AppState, GAMES_CHANGED};
+use crate::cloud::CloudJob;
 use crate::video;
 
 const POLL: Duration = Duration::from_secs(3);
@@ -24,8 +26,13 @@ pub struct RunningGame {
 
 pub type RunningGames = BTreeMap<u32, RunningGame>;
 
+fn should_remember(exe: &std::path::Path, app_id: u32, remembered: &mut HashSet<u32>) -> bool {
+    !is_helper_exe(exe) && remembered.insert(app_id)
+}
+
 pub fn run_process_monitor(app: AppHandle) {
     let mut by_pid: HashMap<u32, u32> = HashMap::new();
+    let mut remembered: HashSet<u32> = HashSet::new();
     let mut ignored: HashSet<u32> = HashSet::new();
     loop {
         std::thread::sleep(POLL);
@@ -45,6 +52,8 @@ pub fn run_process_monitor(app: AppHandle) {
             if !by_pid.values().any(|id| *id == app_id) {
                 stop(&state, app_id, now);
                 video::stop(&app, Some(app_id));
+                state.exiting().insert(app_id);
+                state.cloud.send(CloudJob::GameExited(app_id));
                 changed = true;
             }
         }
@@ -70,8 +79,12 @@ pub fn run_process_monitor(app: AppHandle) {
             match app_id {
                 Some(app_id) => {
                     by_pid.insert(process.pid, app_id);
+                    if should_remember(&process.exe, app_id, &mut remembered) {
+                        remember_exe(&state, app_id, &process.exe);
+                    }
                     if start(&state, app_id, now, &process.exe) {
                         video::start(&app, app_id);
+                        state.cloud.send(CloudJob::GameStarted(app_id));
                         changed = true;
                     }
                 }
@@ -104,6 +117,19 @@ fn start(state: &AppState, app_id: u32, now: i64, exe: &std::path::Path) -> bool
         },
     );
     true
+}
+
+pub fn launch_exe_key(app_id: u32) -> String {
+    format!("launch_exe:{app_id}")
+}
+
+fn remember_exe(state: &AppState, app_id: u32, exe: &std::path::Path) {
+    if let Err(error) = state
+        .store()
+        .meta_set(&launch_exe_key(app_id), &exe.to_string_lossy())
+    {
+        tracing::warn!("cannot remember the exe of {app_id}: {error}");
+    }
 }
 
 fn stop(state: &AppState, app_id: u32, now: i64) {
@@ -238,6 +264,16 @@ pub fn flush_all(state: &AppState) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_game_exe_is_remembered_after_a_helper() {
+        let mut remembered = HashSet::new();
+        let helper = std::path::Path::new(r"C:\G\UnityCrashHandler64.exe");
+        let game = std::path::Path::new(r"C:\G\Game.exe");
+        assert!(!should_remember(helper, 7, &mut remembered));
+        assert!(should_remember(game, 7, &mut remembered));
+        assert!(!should_remember(game, 7, &mut remembered));
+    }
 
     #[test]
     fn snapshot_prefers_steam_plus_session() {

@@ -670,6 +670,31 @@ achieved=true
     }
 
     #[test]
+    fn restored_unlocks_do_not_notify() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut e = engine(tmp.path());
+        e.sync(NOW, true).unwrap();
+        let state = crate::store::GameState {
+            unlocks: vec![crate::store::UnlockState {
+                api_name: "A".into(),
+                unlocked_at: NOW - 30,
+                detected_at: NOW - 30,
+                source_id: "gse".into(),
+                playtime_seconds: None,
+            }],
+            ..Default::default()
+        };
+        e.store().replace_game_state(10, &state).unwrap();
+        touch(
+            tmp.path(),
+            "RoamingAppData/GSE Saves/10/achievements.json",
+            &format!(r#"{{"A":{{"earned":true,"earned_time":{}}}}}"#, NOW - 30),
+        );
+        let out = e.sync(NOW + 1, true).unwrap();
+        assert!(out.new_unlocks.is_empty(), "{:?}", out.new_unlocks);
+    }
+
+    #[test]
     fn relock_is_logged_not_deleted() {
         let tmp = tempfile::tempdir().unwrap();
         let p = onlinefix(tmp.path(), 10, "[A]\nachieved=true\n");
