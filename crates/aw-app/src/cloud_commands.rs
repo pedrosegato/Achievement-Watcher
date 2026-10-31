@@ -1,24 +1,24 @@
 use std::path::{Path, PathBuf};
 use std::sync::PoisonError;
 
-use aw_core::cloud::device::DeviceRecord;
+use aw_core::cloud::device::{DeviceRecord, LocalDevice};
 use aw_core::cloud::heads::{HeadReason, principal, read_heads};
 use aw_core::cloud::key::CloudKey;
-use aw_core::cloud::layout::write_json_atomic;
+use aw_core::cloud::layout::{CloudLayout, write_json_atomic};
 use aw_core::cloud::lineage::history;
 use aw_core::cloud::locate::{Category, Located, SaveRoot, expand};
 use aw_core::cloud::lock::foreign_locks;
 use aw_core::cloud::portable::{Placeholders, PortablePath};
-use aw_core::cloud::snapshot::list_snapshots;
+use aw_core::cloud::snapshot::{SnapshotMeta, list_snapshots};
 use aw_core::cloud::status::{CloudFileState, folder_size, folder_state};
 use aw_core::cloud::steamcloud::DefaultSync;
-use aw_core::cloud::sync::last_choice;
+use aw_core::cloud::sync::{GameTarget, last_choice};
 use aw_core::watcher::unix_now;
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
 use crate::app::AppState;
-use crate::cloud::{CloudJob, cloud_layout, game_target, inventory, set_game_pref};
+use crate::cloud::{CloudJob, TargetInfo, cloud_layout, game_target, inventory, set_game_pref};
 use crate::cloud_status::{Current, StatusInput, SyncStatus, sync_status};
 
 const APP_FOLDER: &str = "AchievementWatcher";
@@ -256,21 +256,33 @@ pub fn set_device_name(state: State<'_, AppState>, name: String) -> Result<(), S
 pub async fn cloud_game(state: State<'_, AppState>, app_id: u32) -> Result<CloudGameView, String> {
     let inv = inventory(&state);
     let Ok(info) = game_target(&state, &inv, app_id) else {
-        return Ok(CloudGameView {
-            key: None,
-            enabled: false,
-            default: DefaultSync::Unknown,
-            located: "notFound".into(),
-            paths: Vec::new(),
-            oversize: false,
-            state: None,
-            last_snapshot_at: None,
-            open_elsewhere: None,
-            last_action: None,
-            snapshots: Vec::new(),
-            status: SyncStatus::Idle,
-        });
+        return Ok(not_found_view());
     };
+    let mut view = local_view(&state, &info);
+    if let Some(layout) = cloud_layout(&state.settings_snapshot()).filter(|l| l.exists()) {
+        add_cloud_view(&mut view, &state, &layout, &info.target, app_id);
+    }
+    Ok(view)
+}
+
+fn not_found_view() -> CloudGameView {
+    CloudGameView {
+        key: None,
+        enabled: false,
+        default: DefaultSync::Unknown,
+        located: "notFound".into(),
+        paths: Vec::new(),
+        oversize: false,
+        state: None,
+        last_snapshot_at: None,
+        open_elsewhere: None,
+        last_action: None,
+        snapshots: Vec::new(),
+        status: SyncStatus::Idle,
+    }
+}
+
+fn local_view(state: &AppState, info: &TargetInfo) -> CloudGameView {
     let target = &info.target;
     let located = match &info.located {
         Located::Roots(_) => "found",
@@ -279,8 +291,19 @@ pub async fn cloud_game(state: State<'_, AppState>, app_id: u32) -> Result<Cloud
         Located::NotFound if state.cloud.manifest().is_none() => "waitingManifest",
         Located::NotFound => "notFound",
     };
-    let paths = display_paths(&target.roots, &target.placeholders);
-    let save_bytes: u64 = target
+    CloudGameView {
+        key: Some(target.key.as_folder_key()),
+        enabled: info.enabled,
+        default: info.default,
+        located: located.into(),
+        paths: display_paths(&target.roots, &target.placeholders),
+        oversize: is_oversize(save_bytes(target)),
+        ..not_found_view()
+    }
+}
+
+fn save_bytes(target: &GameTarget) -> u64 {
+    target
         .roots
         .iter()
         .flat_map(|root| expand(root, &target.placeholders))
@@ -291,24 +314,16 @@ pub async fn cloud_game(state: State<'_, AppState>, app_id: u32) -> Result<Cloud
                 folder_size(&path)
             }
         })
-        .sum();
-    let mut view = CloudGameView {
-        key: Some(target.key.as_folder_key()),
-        enabled: info.enabled,
-        default: info.default,
-        located: located.into(),
-        paths,
-        oversize: is_oversize(save_bytes),
-        state: None,
-        last_snapshot_at: None,
-        open_elsewhere: None,
-        last_action: None,
-        snapshots: Vec::new(),
-        status: SyncStatus::Idle,
-    };
-    let Some(layout) = cloud_layout(&state.settings_snapshot()).filter(|l| l.exists()) else {
-        return Ok(view);
-    };
+        .sum()
+}
+
+fn add_cloud_view(
+    view: &mut CloudGameView,
+    state: &AppState,
+    layout: &CloudLayout,
+    target: &GameTarget,
+    app_id: u32,
+) {
     let own = state
         .device
         .lock()
@@ -328,14 +343,7 @@ pub async fn cloud_game(state: State<'_, AppState>, app_id: u32) -> Result<Cloud
     view.open_elsewhere = foreign_locks(&games, &own, unix_now())
         .first()
         .map(|lock| lock.device_name.clone());
-    view.last_action = last_choice(&layout, &target.key).map(|choice| LastAction {
-        can_undo: own.is_mine(&choice.device_id)
-            && choice.previous.is_some()
-            && UNDOABLE.contains(&choice.reason),
-        reason: choice.reason,
-        at: choice.chosen_at,
-        device_name: choice.device_name,
-    });
+    view.last_action = last_action(layout, &target.key, &own);
     let key = target.key.as_folder_key();
     let base = state.store().cloud_base(&key).ok().flatten();
     let current_meta = metas.iter().find(|meta| Some(&meta.id) == current.as_ref());
@@ -351,10 +359,29 @@ pub async fn cloud_game(state: State<'_, AppState>, app_id: u32) -> Result<Cloud
         base: base.as_ref().map(|b| (b.snapshot_id.as_str(), b.synced_at)),
         own: &own,
     });
-    view.snapshots = history(&metas, current.as_deref())
+    view.snapshots = snapshot_views(&metas, current.as_deref(), &own);
+}
+
+fn last_action(layout: &CloudLayout, key: &CloudKey, own: &LocalDevice) -> Option<LastAction> {
+    last_choice(layout, key).map(|choice| LastAction {
+        can_undo: own.is_mine(&choice.device_id)
+            && choice.previous.is_some()
+            && UNDOABLE.contains(&choice.reason),
+        reason: choice.reason,
+        at: choice.chosen_at,
+        device_name: choice.device_name,
+    })
+}
+
+fn snapshot_views(
+    metas: &[SnapshotMeta],
+    current: Option<&str>,
+    own: &LocalDevice,
+) -> Vec<SnapshotView> {
+    history(metas, current)
         .into_iter()
         .map(|meta| SnapshotView {
-            is_principal: Some(&meta.id) == current.as_ref(),
+            is_principal: Some(meta.id.as_str()) == current,
             mine: own.is_mine(&meta.device_id),
             id: meta.id,
             parent: meta.parent,
@@ -364,8 +391,7 @@ pub async fn cloud_game(state: State<'_, AppState>, app_id: u32) -> Result<Cloud
             unlocked: meta.unlocked,
             found_on_device: meta.found_on_device,
         })
-        .collect();
-    Ok(view)
+        .collect()
 }
 
 fn update_game_pref(

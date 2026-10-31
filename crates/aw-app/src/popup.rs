@@ -332,6 +332,45 @@ fn show_one(
     loaded: &mut Option<(String, Instant)>,
 ) -> Result<(), String> {
     let settings: Settings = app.state::<AppState>().settings_snapshot();
+    let (window, preset) = ready_window(app, request, &settings, loaded)?;
+    schedule_screenshot(app, request, &settings);
+    play_sound(app, request, &settings);
+    let (width, height, duration_ms, bleed) =
+        preset
+            .as_ref()
+            .map_or((450, 120, DEFAULT_DURATION_MS, (0.0, 0.0)), |p| {
+                (
+                    p.width,
+                    p.height,
+                    p.durations.for_kind(request.kind),
+                    p.bleed,
+                )
+            });
+    place(app, &window, (width, height), bleed, &settings)?;
+    window.show().map_err(|e| e.to_string())?;
+    let _ = window.set_always_on_top(true);
+    let _ = window.set_ignore_cursor_events(true);
+    let payload = build_payload(
+        request,
+        &settings,
+        app.state::<AppState>().ui_locale(),
+        crate::system_theme::effective_theme(settings.theme),
+        &crate::system_theme::windows_accent(),
+    );
+    window
+        .eval(show_script(&payload))
+        .map_err(|e| e.to_string())?;
+    queue.wait_or_interrupt(Duration::from_millis(duration_ms) + HIDE_SLACK);
+    window.hide().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn ready_window(
+    app: &AppHandle,
+    request: &PopupRequest,
+    settings: &Settings,
+    loaded: &mut Option<(String, Instant)>,
+) -> Result<(WebviewWindow, Option<PresetInfo>), String> {
     let wanted = if request.kind == PopupKind::Progress {
         crate::settings::DEFAULT_PRESET.to_owned()
     } else {
@@ -354,7 +393,7 @@ fn show_one(
     if loaded.as_ref().is_none_or(|(id, _)| *id != preset_id) {
         let url = Url::parse(&preset_url(&preset_id)).map_err(|e| e.to_string())?;
         window.navigate(url).map_err(|e| e.to_string())?;
-        *loaded = Some((preset_id.clone(), Instant::now()));
+        *loaded = Some((preset_id, Instant::now()));
     }
     if let Some((_, since)) = loaded {
         let elapsed = since.elapsed();
@@ -362,26 +401,34 @@ fn show_one(
             std::thread::sleep(LOAD_GRACE - elapsed);
         }
     }
+    Ok((window, preset))
+}
 
-    if request.screenshot && settings.screenshot {
-        let root = settings.screenshot_dir.clone().or_else(|| {
-            app.path()
-                .picture_dir()
-                .ok()
-                .map(|d| shot::default_capture_root(&d))
-        });
-        if let Some(root) = root {
-            let game = request.game.clone();
-            let achievement = request.display_name.clone();
-            let pids = app.state::<AppState>().pids_of(request.app_id);
-            shot::later(shot::CAPTURE_DELAY, move || {
-                match shot::capture(&root, &game, &achievement, &pids) {
-                    Ok(path) => tracing::info!("screenshot saved to {}", path.display()),
-                    Err(error) => tracing::warn!("screenshot failed: {error}"),
-                }
-            });
-        }
+fn schedule_screenshot(app: &AppHandle, request: &PopupRequest, settings: &Settings) {
+    if !request.screenshot || !settings.screenshot {
+        return;
     }
+    let root = settings.screenshot_dir.clone().or_else(|| {
+        app.path()
+            .picture_dir()
+            .ok()
+            .map(|d| shot::default_capture_root(&d))
+    });
+    let Some(root) = root else {
+        return;
+    };
+    let game = request.game.clone();
+    let achievement = request.display_name.clone();
+    let pids = app.state::<AppState>().pids_of(request.app_id);
+    shot::later(shot::CAPTURE_DELAY, move || {
+        match shot::capture(&root, &game, &achievement, &pids) {
+            Ok(path) => tracing::info!("screenshot saved to {}", path.display()),
+            Err(error) => tracing::warn!("screenshot failed: {error}"),
+        }
+    });
+}
+
+fn play_sound(app: &AppHandle, request: &PopupRequest, settings: &Settings) {
     if settings.sound
         && let Some(event) = sound_event(request.kind)
     {
@@ -390,18 +437,15 @@ fn show_one(
             .sound_source(&settings.sound_id, event);
         sound::play(settings.sound_volume, source);
     }
+}
 
-    let (width, height, duration_ms, bleed) =
-        preset
-            .as_ref()
-            .map_or((450, 120, DEFAULT_DURATION_MS, (0.0, 0.0)), |p| {
-                (
-                    p.width,
-                    p.height,
-                    p.durations.for_kind(request.kind),
-                    p.bleed,
-                )
-            });
+fn place(
+    app: &AppHandle,
+    window: &WebviewWindow,
+    (width, height): (u32, u32),
+    bleed: (f64, f64),
+    settings: &Settings,
+) -> Result<(), String> {
     let monitor = app
         .primary_monitor()
         .map_err(|e| e.to_string())?
@@ -430,21 +474,6 @@ fn show_one(
     window
         .set_position(PhysicalPosition::new(x, y))
         .map_err(|e| e.to_string())?;
-    window.show().map_err(|e| e.to_string())?;
-    let _ = window.set_always_on_top(true);
-    let _ = window.set_ignore_cursor_events(true);
-    let payload = build_payload(
-        request,
-        &settings,
-        app.state::<AppState>().ui_locale(),
-        crate::system_theme::effective_theme(settings.theme),
-        &crate::system_theme::windows_accent(),
-    );
-    window
-        .eval(show_script(&payload))
-        .map_err(|e| e.to_string())?;
-    queue.wait_or_interrupt(Duration::from_millis(duration_ms) + HIDE_SLACK);
-    window.hide().map_err(|e| e.to_string())?;
     Ok(())
 }
 

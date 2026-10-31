@@ -38,33 +38,83 @@ pub fn restore(
     if !matches!(read_snapshot(dir, Verify::Hashes), SnapshotRead::Ready(_)) {
         return Err(CloudError::Incomplete(meta.id.clone()));
     }
-    let emulator = target.kind == GameKind::Emulator;
-    let applied: Vec<Category> = [
+    let applied = applied_categories(meta, target.kind);
+    let plan = plan_writes(dir, meta, target, &applied)?;
+    let staged = stage(&plan.writes, target)?;
+    let swap = match target.cancel {
+        Some(gate) => match gate.begin_swap() {
+            Some(guard) => Some(guard),
+            None => {
+                discard(&staged);
+                return Err(CloudError::Cancelled);
+            }
+        },
+        None => None,
+    };
+    let swapped = swap_all(&staged)?;
+    if let Err(error) = restore_state(dir, meta, target, store) {
+        roll_back(&swapped);
+        return Err(error);
+    }
+    for backup in swapped.iter().filter_map(|(_, backup)| backup.as_ref()) {
+        let _ = remove_forced(backup);
+    }
+    remove_stale(target, &applied, &plan)?;
+    drop(swap);
+    Ok(())
+}
+
+fn applied_categories(meta: &SnapshotMeta, kind: GameKind) -> Vec<Category> {
+    [
         (Category::Save, meta.contents.save),
         (
             Category::EmulatorFiles,
-            meta.contents.emulator_files && emulator,
+            meta.contents.emulator_files && kind == GameKind::Emulator,
         ),
     ]
     .into_iter()
     .filter_map(|(category, on)| on.then_some(category))
-    .collect();
-    let mut writes: Vec<(PathBuf, PathBuf)> = Vec::new();
-    let mut written: HashSet<String> = HashSet::new();
-    let mut covered: HashSet<String> = HashSet::new();
+    .collect()
+}
+
+struct WritePlan {
+    writes: Vec<(PathBuf, PathBuf)>,
+    written: HashSet<String>,
+    covered: HashSet<String>,
+}
+
+fn plan_writes(
+    dir: &Path,
+    meta: &SnapshotMeta,
+    target: &RestoreTarget,
+    applied: &[Category],
+) -> CloudResult<WritePlan> {
+    let mut plan = WritePlan {
+        writes: Vec::new(),
+        written: HashSet::new(),
+        covered: HashSet::new(),
+    };
     for entry in meta.files.iter().filter(|e| applied.contains(&e.category)) {
         let Some(original) = local_original(&entry.original, target.app_id, target.roots) else {
             continue;
         };
         if let Some(destination) = retarget(&original, target.roots, target.placeholders)?
-            && written.insert(same_file(&destination))
+            && plan.written.insert(same_file(&destination))
         {
-            covered.extend(root_instance(&destination, &original, target.roots));
-            writes.push((dir.join(&entry.stored), destination));
+            plan.covered
+                .extend(root_instance(&destination, &original, target.roots));
+            plan.writes.push((dir.join(&entry.stored), destination));
         }
     }
+    Ok(plan)
+}
+
+fn stage<'w>(
+    writes: &'w [(PathBuf, PathBuf)],
+    target: &RestoreTarget,
+) -> CloudResult<Vec<(PathBuf, &'w PathBuf)>> {
     let mut staged: Vec<(PathBuf, &PathBuf)> = Vec::with_capacity(writes.len());
-    for (source, destination) in &writes {
+    for (source, destination) in writes {
         if target.cancelled() {
             discard(&staged);
             return Err(CloudError::Cancelled);
@@ -83,49 +133,52 @@ pub fn restore(
         }
         staged.push((temp, destination));
     }
-    let swap = match target.cancel {
-        Some(gate) => match gate.begin_swap() {
-            Some(guard) => Some(guard),
-            None => {
-                discard(&staged);
-                return Err(CloudError::Cancelled);
-            }
-        },
-        None => None,
-    };
+    Ok(staged)
+}
+
+fn swap_all<'s>(
+    staged: &'s [(PathBuf, &PathBuf)],
+) -> CloudResult<Vec<(&'s PathBuf, Option<PathBuf>)>> {
     let mut swapped: Vec<(&PathBuf, Option<PathBuf>)> = Vec::with_capacity(staged.len());
-    for (temp, destination) in &staged {
+    for (temp, destination) in staged {
         match swap_in(temp, destination) {
             Ok(backup) => swapped.push((destination, backup)),
             Err(error) => {
                 roll_back(&swapped);
-                discard(&staged);
+                discard(staged);
                 return Err(error.into());
             }
         }
+    }
+    Ok(swapped)
+}
+
+fn restore_state(
+    dir: &Path,
+    meta: &SnapshotMeta,
+    target: &RestoreTarget,
+    store: &Store,
+) -> CloudResult<()> {
+    if target.kind != GameKind::Emulator {
+        return Ok(());
     }
     let state_dir = if meta.contents.state {
         Some(dir)
     } else {
         target.inherited_state
     };
-    if let Some(state_dir) = state_dir.filter(|_| emulator) {
-        let applied_state = load_state(state_dir).and_then(|state| {
-            let mut state = state.unwrap_or_default();
-            if let (Some(base), Some(local)) = (target.base_playtime, target.local.state.as_ref()) {
-                let unsynced = local.playtime_seconds.saturating_sub(base).max(0);
-                state.playtime_seconds = state.playtime_seconds.max(0).saturating_add(unsynced);
-            }
-            Ok(store.replace_game_state(target.app_id, &state)?)
-        });
-        if let Err(error) = applied_state {
-            roll_back(&swapped);
-            return Err(error);
-        }
+    let Some(state_dir) = state_dir else {
+        return Ok(());
+    };
+    let mut state = load_state(state_dir)?.unwrap_or_default();
+    if let (Some(base), Some(local)) = (target.base_playtime, target.local.state.as_ref()) {
+        let unsynced = local.playtime_seconds.saturating_sub(base).max(0);
+        state.playtime_seconds = state.playtime_seconds.max(0).saturating_add(unsynced);
     }
-    for backup in swapped.iter().filter_map(|(_, backup)| backup.as_ref()) {
-        let _ = remove_forced(backup);
-    }
+    Ok(store.replace_game_state(target.app_id, &state)?)
+}
+
+fn remove_stale(target: &RestoreTarget, applied: &[Category], plan: &WritePlan) -> CloudResult<()> {
     for file in target
         .local
         .files
@@ -133,16 +186,17 @@ pub fn restore(
         .filter(|f| applied.contains(&f.category))
         .filter(|f| {
             let key = same_file(&f.source);
-            covered.iter().any(|root| key.starts_with(root.as_str()))
+            plan.covered
+                .iter()
+                .any(|root| key.starts_with(root.as_str()))
         })
-        .filter(|f| !written.contains(&same_file(&f.source)))
+        .filter(|f| !plan.written.contains(&same_file(&f.source)))
     {
         match std::fs::remove_file(&file.source) {
             Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err(error.into()),
             _ => {}
         }
     }
-    drop(swap);
     Ok(())
 }
 

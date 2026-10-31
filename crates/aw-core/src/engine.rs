@@ -13,8 +13,8 @@ use crate::discovery::running::KnownGame;
 use crate::discovery::sources::builtin_sources;
 use crate::discovery::{Found, discover};
 use crate::fileio::{fnv1a64, read_with_retry};
-use crate::model::Unlock;
 use crate::model::sane_unlock_time;
+use crate::model::{Progress, Unlock};
 use crate::parsers::smartsteam::{CRC_PREFIX, crc_name, crc32};
 use crate::parsers::{local_texts, parse_file};
 use crate::platform::{ExternalId, Platform, is_synthetic, map_name, uplay_key};
@@ -320,46 +320,17 @@ impl Engine {
                     .unlocked_at
                     .and_then(|raw| sane_unlock_time(raw, now))
                     .unwrap_or(untimed);
-                if self.store.record_unlock(
-                    file.app_id,
-                    &unlock.api_name,
-                    time,
-                    now,
-                    file.source_id,
-                )? {
-                    outcome.new_unlocks.push(NewUnlock {
-                        app_id: file.app_id,
-                        api_name: unlock.api_name.clone(),
-                        unlocked_at: time,
-                        source_id: file.source_id,
-                        notify: false,
-                    });
-                }
-            } else if let Some(progress) = unlock
+                self.record_unlock(file, &unlock.api_name, time, now, outcome)?;
+                continue;
+            }
+            if let Some(progress) = unlock
                 .progress
                 .as_ref()
                 .filter(|p| p.max > 0 && p.current < p.max)
             {
-                let previous = self.store.update_progress(
-                    file.app_id,
-                    &unlock.api_name,
-                    progress.current,
-                    progress.max,
-                )?;
-                if !outcome.first_boot
-                    && previous.is_some_and(|_| {
-                        crosses_milestone(previous, progress.current, progress.max)
-                    })
-                {
-                    outcome.progress.push(ProgressUpdate {
-                        app_id: file.app_id,
-                        api_name: unlock.api_name.clone(),
-                        current: progress.current,
-                        max: progress.max,
-                    });
-                }
+                self.record_progress(file, &unlock.api_name, progress, outcome)?;
             }
-            if !unlock.unlocked && self.store.is_unlocked(file.app_id, &unlock.api_name)? {
+            if self.store.is_unlocked(file.app_id, &unlock.api_name)? {
                 outcome.relocked += 1;
                 tracing::info!(
                     "{} {} is locked again in {path}; keeping the recorded unlock",
@@ -371,6 +342,52 @@ impl Engine {
         let count = u32::try_from(unlocks.len()).unwrap_or(u32::MAX);
         self.store
             .mark_file_ok(&path, file.source_id, file.app_id, &hash, count, now)
+    }
+
+    fn record_unlock(
+        &self,
+        file: &Found,
+        api_name: &str,
+        time: i64,
+        now: i64,
+        outcome: &mut SyncOutcome,
+    ) -> StoreResult<()> {
+        if self
+            .store
+            .record_unlock(file.app_id, api_name, time, now, file.source_id)?
+        {
+            outcome.new_unlocks.push(NewUnlock {
+                app_id: file.app_id,
+                api_name: api_name.to_owned(),
+                unlocked_at: time,
+                source_id: file.source_id,
+                notify: false,
+            });
+        }
+        Ok(())
+    }
+
+    fn record_progress(
+        &self,
+        file: &Found,
+        api_name: &str,
+        progress: &Progress,
+        outcome: &mut SyncOutcome,
+    ) -> StoreResult<()> {
+        let previous =
+            self.store
+                .update_progress(file.app_id, api_name, progress.current, progress.max)?;
+        if !outcome.first_boot
+            && previous.is_some_and(|_| crosses_milestone(previous, progress.current, progress.max))
+        {
+            outcome.progress.push(ProgressUpdate {
+                app_id: file.app_id,
+                api_name: api_name.to_owned(),
+                current: progress.current,
+                max: progress.max,
+            });
+        }
+        Ok(())
     }
 }
 

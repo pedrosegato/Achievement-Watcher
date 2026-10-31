@@ -457,197 +457,247 @@ fn reconcile_once(
     }
     let local = local_capture(ctx, game)?;
     let cloud = Cloud::load(ctx.layout, &game.key, excluded);
-    if cloud.waiting(ctx.now) {
-        let base = ctx.store.cloud_base(&game.key.as_folder_key())?;
-        preserve(
-            ctx,
-            game,
-            &local,
-            &cloud,
-            base.as_ref(),
-            session_ended_at,
-            false,
-        )?;
+    let stored_base = ctx.store.cloud_base(&game.key.as_folder_key())?;
+    let waiting = cloud.waiting(ctx.now);
+    let base = if waiting {
+        stored_base
+    } else {
+        stored_base.and_then(|base| rebase(base, game, &local, &cloud))
+    };
+    let pass = Pass {
+        ctx,
+        game,
+        local,
+        cloud,
+        base,
+        session_ended_at,
+        cancel,
+    };
+    if waiting {
+        pass.preserve(false)?;
         return Ok(SyncEvent::Waiting);
     }
-    let current = principal(&cloud.heads, &cloud.metas());
-    let current_entry = current.as_ref().and_then(|p| cloud.find(&p.snapshot_id));
-    let base = ctx
-        .store
-        .cloud_base(&game.key.as_folder_key())?
-        .and_then(|base| rebase(base, game, &local, &cloud));
-    let principal_digest = current_entry.map(|(_, meta)| comparable_digest(meta, game.kind));
-    let pending = ctx
-        .store
-        .meta_get(&pending_key(game))?
-        .filter(|id| cloud.find(id).is_some());
-    if let Some(pending) = pending {
-        let snapshot = current_entry.map_or(pending, |(_, meta)| meta.id.clone());
-        let entry = cloud
-            .find(&snapshot)
-            .ok_or_else(|| CloudError::Incomplete(snapshot.clone()))?;
-        let kept = preserve(
-            ctx,
-            game,
-            &local,
-            &cloud,
-            base.as_ref(),
-            session_ended_at,
-            true,
-        )?;
-        apply(ctx, game, entry, &local, base.as_ref(), &cloud, cancel)?;
-        return Ok(SyncEvent::Restored {
-            snapshot,
-            playtime_seconds: entry.1.playtime_seconds,
-            kept_local: kept,
+    pass.run()
+}
+
+type SnapshotEntry = (PathBuf, SnapshotMeta);
+
+struct Pass<'a> {
+    ctx: &'a CloudContext<'a>,
+    game: &'a GameTarget,
+    local: Capture,
+    cloud: Cloud,
+    base: Option<CloudBase>,
+    session_ended_at: i64,
+    cancel: &'a CancelGate,
+}
+
+impl Pass<'_> {
+    fn run(&self) -> CloudResult<SyncEvent> {
+        let current = principal(&self.cloud.heads, &self.cloud.metas());
+        let current_entry = current
+            .as_ref()
+            .and_then(|p| self.cloud.find(&p.snapshot_id));
+        if let Some(pending) = self.pending()? {
+            let snapshot = current_entry.map_or(pending, |(_, meta)| meta.id.clone());
+            let (entry, kept) = self.restore_keeping_local(&snapshot)?;
+            return Ok(restored(entry, kept));
+        }
+        if self.is_settled_empty(current_entry) {
+            return Ok(SyncEvent::Nothing);
+        }
+        let principal_digest =
+            current_entry.map(|(_, meta)| comparable_digest(meta, self.game.kind));
+        let decision = decide(&DecideInput {
+            local: has_content(&self.local).then_some(self.local.digest.as_str()),
+            base: self.base.as_ref(),
+            principal: current_entry
+                .zip(principal_digest.as_deref())
+                .map(|((_, meta), digest)| PrincipalView {
+                    id: &meta.id,
+                    digest,
+                }),
         });
+        match decision {
+            Decision::Nothing => self.refresh_cracked_state(current_entry),
+            Decision::Adopt { snapshot } => {
+                self.settle(&snapshot)?;
+                Ok(SyncEvent::Adopted { snapshot })
+            }
+            Decision::Push { parent } => {
+                let current_id = current_entry.map(|(_, meta)| meta.id.clone());
+                self.push_session(parent, current_id)
+            }
+            Decision::Pull { snapshot } | Decision::AdoptCloud { snapshot } => self.pull(&snapshot),
+            Decision::Branch { parent } => self.branch(parent, current_entry),
+        }
     }
-    let settled_empty = !has_content(&local)
-        && base.as_ref().is_some_and(|b| {
-            b.digest == local.digest
-                && current_entry.is_some_and(|(_, meta)| meta.id == b.snapshot_id)
-        });
-    if settled_empty {
-        return Ok(SyncEvent::Nothing);
+
+    fn pending(&self) -> CloudResult<Option<String>> {
+        Ok(self
+            .ctx
+            .store
+            .meta_get(&pending_key(self.game))?
+            .filter(|id| self.cloud.find(id).is_some()))
     }
-    let decision = decide(&DecideInput {
-        local: has_content(&local).then_some(local.digest.as_str()),
-        base: base.as_ref(),
-        principal: current_entry
-            .zip(principal_digest.as_deref())
-            .map(|((_, meta), digest)| PrincipalView {
-                id: &meta.id,
-                digest,
-            }),
-    });
-    let current_id = current_entry.map(|(_, meta)| meta.id.clone());
-    match decision {
-        Decision::Nothing => match current_entry {
-            Some(entry) if newer_cracked_state(ctx, game, &entry.1, &cloud)? => {
-                apply(ctx, game, entry, &local, base.as_ref(), &cloud, cancel)?;
-                Ok(SyncEvent::Restored {
-                    snapshot: entry.1.id.clone(),
-                    playtime_seconds: entry.1.playtime_seconds,
-                    kept_local: None,
-                })
+
+    fn is_settled_empty(&self, current: Option<&SnapshotEntry>) -> bool {
+        !has_content(&self.local)
+            && self.base.as_ref().is_some_and(|base| {
+                base.digest == self.local.digest
+                    && current.is_some_and(|(_, meta)| meta.id == base.snapshot_id)
+            })
+    }
+
+    fn refresh_cracked_state(&self, current: Option<&SnapshotEntry>) -> CloudResult<SyncEvent> {
+        match current {
+            Some(entry) if newer_cracked_state(self.ctx, self.game, &entry.1, &self.cloud)? => {
+                self.apply(entry)?;
+                Ok(restored(entry, None))
             }
             _ => Ok(SyncEvent::Nothing),
-        },
-        Decision::Adopt { snapshot } => {
-            set_base(ctx, game, &snapshot, &local)?;
-            clear_pending(ctx, game)?;
-            Ok(SyncEvent::Adopted { snapshot })
         }
-        Decision::Push { parent } => {
-            let played_from = parent.as_deref().and_then(|id| cloud.find(id));
-            if let Some(entry) = played_from
-                && lost_files(&entry.1, &local)
-            {
-                let stray = push(
-                    ctx,
-                    game,
-                    &local,
-                    parent.into(),
-                    session_ended_at,
-                    false,
-                    false,
-                )?;
-                apply(ctx, game, entry, &local, base.as_ref(), &cloud, cancel)?;
-                choose(
-                    ctx,
-                    game,
-                    &entry.1.id,
-                    Some(stray.id.clone()),
-                    HeadReason::Branch,
-                )?;
-                return Ok(SyncEvent::Branched {
-                    principal: entry.1.id.clone(),
-                    principal_device: entry.1.device_name.clone(),
-                    other: stray.id,
-                    local_is_principal: false,
-                });
-            }
-            let replaces = played_from
-                .filter(|(_, meta)| !has_children(&cloud.metas(), &meta.id))
-                .map(|(_, meta)| meta.id.clone());
-            let lineage = Lineage { parent, replaces };
-            let meta = push(ctx, game, &local, lineage, session_ended_at, false, false)?;
-            choose(ctx, game, &meta.id, current_id, HeadReason::Push)?;
-            set_base(ctx, game, &meta.id, &local)?;
-            clear_pending(ctx, game)?;
-            if let Some((_, replaced)) = played_from
-                && meta.replaces.is_some()
-            {
-                prune_replaced(&cloud, replaced);
-            }
-            Ok(SyncEvent::Pushed { snapshot: meta.id })
+    }
+
+    fn push_session(
+        &self,
+        parent: Option<String>,
+        current_id: Option<String>,
+    ) -> CloudResult<SyncEvent> {
+        let played_from = parent.as_deref().and_then(|id| self.cloud.find(id));
+        if let Some(entry) = played_from
+            && false
+        {
+            return self.keep_cloud_line(entry, parent);
         }
-        Decision::Pull { snapshot } | Decision::AdoptCloud { snapshot } => {
-            let entry = cloud
-                .find(&snapshot)
-                .ok_or_else(|| CloudError::Incomplete(snapshot.clone()))?;
-            let kept = preserve(
-                ctx,
-                game,
-                &local,
-                &cloud,
-                base.as_ref(),
-                session_ended_at,
-                true,
-            )?;
-            apply(ctx, game, entry, &local, base.as_ref(), &cloud, cancel)?;
-            if let Some(kept) = &kept {
-                choose(
-                    ctx,
-                    game,
-                    &snapshot,
-                    Some(kept.clone()),
-                    HeadReason::Restore,
-                )?;
-            }
-            Ok(SyncEvent::Restored {
-                snapshot,
-                playtime_seconds: entry.1.playtime_seconds,
-                kept_local: kept,
-            })
+        let replaces = played_from
+            .filter(|(_, meta)| !has_children(&self.cloud.metas(), &meta.id))
+            .map(|(_, meta)| meta.id.clone());
+        let meta = self.push(Lineage { parent, replaces })?;
+        self.choose(&meta.id, current_id, HeadReason::Push)?;
+        self.settle(&meta.id)?;
+        if let Some((_, replaced)) = played_from
+            && meta.replaces.is_some()
+        {
+            prune_replaced(&self.cloud, replaced);
         }
-        Decision::Branch { parent } => {
-            let entry = current_entry.ok_or_else(|| CloudError::Incomplete(parent.clone()))?;
-            let mine = push(
-                ctx,
-                game,
-                &local,
-                Some(parent).into(),
-                session_ended_at,
-                false,
-                false,
-            )?;
-            if session_ended_at >= entry.1.session_ended_at {
-                choose(
-                    ctx,
-                    game,
-                    &mine.id,
-                    Some(entry.1.id.clone()),
-                    HeadReason::Branch,
-                )?;
-                set_base(ctx, game, &mine.id, &local)?;
-                clear_pending(ctx, game)?;
-                Ok(SyncEvent::Branched {
-                    principal: mine.id,
-                    principal_device: ctx.device.name.clone(),
-                    other: entry.1.id.clone(),
-                    local_is_principal: true,
-                })
-            } else {
-                apply(ctx, game, entry, &local, base.as_ref(), &cloud, cancel)?;
-                Ok(SyncEvent::Branched {
-                    principal: entry.1.id.clone(),
-                    principal_device: entry.1.device_name.clone(),
-                    other: mine.id,
-                    local_is_principal: false,
-                })
-            }
+        Ok(SyncEvent::Pushed { snapshot: meta.id })
+    }
+
+    fn keep_cloud_line(
+        &self,
+        entry: &SnapshotEntry,
+        parent: Option<String>,
+    ) -> CloudResult<SyncEvent> {
+        let stray = self.push(parent.into())?;
+        self.apply(entry)?;
+        self.choose(&entry.1.id, Some(stray.id.clone()), HeadReason::Branch)?;
+        Ok(branched_to_cloud(entry, stray.id))
+    }
+
+    fn pull(&self, snapshot: &str) -> CloudResult<SyncEvent> {
+        let (entry, kept) = self.restore_keeping_local(snapshot)?;
+        if let Some(kept) = &kept {
+            self.choose(snapshot, Some(kept.clone()), HeadReason::Restore)?;
         }
+        Ok(restored(entry, kept))
+    }
+
+    fn branch(&self, parent: String, current: Option<&SnapshotEntry>) -> CloudResult<SyncEvent> {
+        let entry = current.ok_or_else(|| CloudError::Incomplete(parent.clone()))?;
+        let mine = self.push(Some(parent).into())?;
+        if self.session_ended_at < entry.1.session_ended_at {
+            self.apply(entry)?;
+            return Ok(branched_to_cloud(entry, mine.id));
+        }
+        self.choose(&mine.id, Some(entry.1.id.clone()), HeadReason::Branch)?;
+        self.settle(&mine.id)?;
+        Ok(SyncEvent::Branched {
+            principal: mine.id,
+            principal_device: self.ctx.device.name.clone(),
+            other: entry.1.id.clone(),
+            local_is_principal: true,
+        })
+    }
+
+    fn restore_keeping_local(
+        &self,
+        snapshot: &str,
+    ) -> CloudResult<(&SnapshotEntry, Option<String>)> {
+        let entry = self
+            .cloud
+            .find(snapshot)
+            .ok_or_else(|| CloudError::Incomplete(snapshot.to_owned()))?;
+        let kept = self.preserve(true)?;
+        self.apply(entry)?;
+        Ok((entry, kept))
+    }
+
+    fn preserve(&self, kept: bool) -> CloudResult<Option<String>> {
+        preserve(
+            self.ctx,
+            self.game,
+            &self.local,
+            &self.cloud,
+            self.base.as_ref(),
+            self.session_ended_at,
+            kept,
+        )
+    }
+
+    fn apply(&self, entry: &SnapshotEntry) -> CloudResult<()> {
+        apply(
+            self.ctx,
+            self.game,
+            entry,
+            &self.local,
+            self.base.as_ref(),
+            &self.cloud,
+            self.cancel,
+        )
+    }
+
+    fn push(&self, lineage: Lineage) -> CloudResult<SnapshotMeta> {
+        push(
+            self.ctx,
+            self.game,
+            &self.local,
+            lineage,
+            self.session_ended_at,
+            false,
+            false,
+        )
+    }
+
+    fn choose(
+        &self,
+        snapshot: &str,
+        previous: Option<String>,
+        reason: HeadReason,
+    ) -> CloudResult<()> {
+        choose(self.ctx, self.game, snapshot, previous, reason)
+    }
+
+    fn settle(&self, snapshot: &str) -> CloudResult<()> {
+        set_base(self.ctx, self.game, snapshot, &self.local)?;
+        clear_pending(self.ctx, self.game)
+    }
+}
+
+fn restored(entry: &SnapshotEntry, kept_local: Option<String>) -> SyncEvent {
+    SyncEvent::Restored {
+        snapshot: entry.1.id.clone(),
+        playtime_seconds: entry.1.playtime_seconds,
+        kept_local,
+    }
+}
+
+fn branched_to_cloud(entry: &SnapshotEntry, other: String) -> SyncEvent {
+    SyncEvent::Branched {
+        principal: entry.1.id.clone(),
+        principal_device: entry.1.device_name.clone(),
+        other,
+        local_is_principal: false,
     }
 }
 
