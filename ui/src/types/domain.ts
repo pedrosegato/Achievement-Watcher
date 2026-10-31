@@ -287,11 +287,15 @@ export interface FfmpegStatus {
   total: number | null;
 }
 
+export type UpdatePhase = "idle" | "checking" | "downloading" | "installing";
+
 export interface UpdateStatus {
   current: string;
   available: string | null;
   notes: string | null;
-  busy: boolean;
+  phase: UpdatePhase;
+  downloaded: number;
+  total: number | null;
   error: string | null;
   checkedAt: number | null;
 }

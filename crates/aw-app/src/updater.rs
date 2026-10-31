@@ -1,5 +1,5 @@
 use std::sync::{Mutex, MutexGuard, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use aw_core::watcher::unix_now;
 use serde::Serialize;
@@ -9,8 +9,20 @@ use tauri_plugin_updater::UpdaterExt;
 use crate::app::AppState;
 
 pub const UPDATE_AVAILABLE: &str = "update-available";
+pub const UPDATE_PROGRESS: &str = "update-progress";
 const CHECK_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 const FIRST_CHECK_DELAY: Duration = Duration::from_secs(30);
+const PROGRESS_EVERY: Duration = Duration::from_millis(200);
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum UpdatePhase {
+    #[default]
+    Idle,
+    Checking,
+    Downloading,
+    Installing,
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -18,7 +30,9 @@ pub struct UpdateStatus {
     pub current: String,
     pub available: Option<String>,
     pub notes: Option<String>,
-    pub busy: bool,
+    pub phase: UpdatePhase,
+    pub downloaded: u64,
+    pub total: Option<u64>,
     pub error: Option<String>,
     pub checked_at: Option<i64>,
 }
@@ -40,6 +54,41 @@ pub fn status(state: &AppState) -> UpdateStatus {
     status
 }
 
+fn report(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let _ = app.emit(UPDATE_PROGRESS, status(&state));
+}
+
+fn change(app: &AppHandle, f: impl FnOnce(&mut UpdateStatus)) {
+    f(&mut app.state::<AppState>().updater.lock());
+    report(app);
+}
+
+fn begin(app: &AppHandle) -> bool {
+    {
+        let state = app.state::<AppState>();
+        let mut status = state.updater.lock();
+        if status.phase != UpdatePhase::Idle {
+            return false;
+        }
+        status.phase = UpdatePhase::Checking;
+        status.error = None;
+    }
+    report(app);
+    true
+}
+
+fn finish(app: &AppHandle, result: Result<(), String>) {
+    change(app, |status| {
+        status.phase = UpdatePhase::Idle;
+        status.checked_at = Some(unix_now());
+        if let Err(error) = result {
+            tracing::info!("update: {error}");
+            status.error = Some(error);
+        }
+    });
+}
+
 pub fn spawn(app: AppHandle) {
     let spawned = std::thread::Builder::new()
         .name("aw-updater".into())
@@ -56,41 +105,27 @@ pub fn spawn(app: AppHandle) {
 }
 
 pub fn check(app: &AppHandle, allow_auto_install: bool) {
-    let state = app.state::<AppState>();
-    {
-        let mut status = state.updater.lock();
-        if status.busy {
-            return;
-        }
-        status.busy = true;
-        status.error = None;
-    }
-    let result = run_check(app, allow_auto_install);
-    let mut status = state.updater.lock();
-    status.busy = false;
-    status.checked_at = Some(unix_now());
-    if let Err(error) = result {
-        tracing::info!("update check: {error}");
-        status.error = Some(error);
+    if begin(app) {
+        finish(app, run_check(app, allow_auto_install));
     }
 }
 
-fn run_check(app: &AppHandle, allow_auto_install: bool) -> Result<(), String> {
+fn find(app: &AppHandle) -> Result<Option<tauri_plugin_updater::Update>, String> {
     let updater = app.updater().map_err(|e| e.to_string())?;
     let found = tauri::async_runtime::block_on(updater.check()).map_err(|e| e.to_string())?;
-    let state = app.state::<AppState>();
-    let Some(update) = found else {
-        let mut status = state.updater.lock();
-        status.available = None;
-        status.notes = None;
+    change(app, |status| {
+        status.available = found.as_ref().map(|u| u.version.clone());
+        status.notes = found.as_ref().and_then(|u| u.body.clone());
+    });
+    Ok(found)
+}
+
+fn run_check(app: &AppHandle, allow_auto_install: bool) -> Result<(), String> {
+    let Some(update) = find(app)? else {
         return Ok(());
     };
-    {
-        let mut status = state.updater.lock();
-        status.available = Some(update.version.clone());
-        status.notes = update.body.clone();
-    }
     let _ = app.emit(UPDATE_AVAILABLE, update.version.clone());
+    let state = app.state::<AppState>();
     let auto = state.settings_snapshot().auto_update;
     let idle = state.running().is_empty();
     if allow_auto_install && auto && idle {
@@ -101,8 +136,28 @@ fn run_check(app: &AppHandle, allow_auto_install: bool) -> Result<(), String> {
 
 fn install(app: &AppHandle, update: tauri_plugin_updater::Update) -> Result<(), String> {
     tracing::info!("installing update {}", update.version);
-    tauri::async_runtime::block_on(update.download_and_install(|_, _| {}, || {}))
-        .map_err(|e| e.to_string())?;
+    change(app, |status| {
+        status.phase = UpdatePhase::Downloading;
+        status.downloaded = 0;
+        status.total = None;
+    });
+    let mut last = Instant::now();
+    tauri::async_runtime::block_on(update.download_and_install(
+        |chunk, total| {
+            {
+                let state = app.state::<AppState>();
+                let mut status = state.updater.lock();
+                status.downloaded += chunk as u64;
+                status.total = total;
+            }
+            if last.elapsed() >= PROGRESS_EVERY {
+                last = Instant::now();
+                report(app);
+            }
+        },
+        || change(app, |status| status.phase = UpdatePhase::Installing),
+    ))
+    .map_err(|e| e.to_string())?;
     app.restart();
 }
 
@@ -110,16 +165,13 @@ pub fn install_now(app: AppHandle) {
     let spawned = std::thread::Builder::new()
         .name("aw-update-install".into())
         .spawn(move || {
-            let state = app.state::<AppState>();
-            let result = app
-                .updater()
-                .map_err(|e| e.to_string())
-                .and_then(|u| tauri::async_runtime::block_on(u.check()).map_err(|e| e.to_string()))
+            if !begin(&app) {
+                return;
+            }
+            let result = find(&app)
                 .and_then(|found| found.ok_or_else(|| "no update available".to_owned()))
                 .and_then(|update| install(&app, update));
-            if let Err(error) = result {
-                state.updater.lock().error = Some(error);
-            }
+            finish(&app, result);
         });
     if let Err(error) = spawned {
         tracing::warn!("update install thread failed: {error}");

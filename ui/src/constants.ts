@@ -4,6 +4,7 @@ export const EVENTS = {
   scanProgress: "scan-progress",
   overlayShown: "overlay-shown",
   updateAvailable: "update-available",
+  updateProgress: "update-progress",
   ffmpegProgress: "ffmpeg-progress",
   cloudChanged: "cloud-changed",
   playChanged: "play-changed",
@@ -81,7 +82,6 @@ export const TIMINGS = {
   statusFlashMs: 1500,
   rescanFeedbackMs: 1500,
   ffmpegPollMs: 1500,
-  updateRecheckMs: 2500,
   soundFallbackMs: 1500,
 } as const;
 

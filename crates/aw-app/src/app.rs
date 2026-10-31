@@ -252,6 +252,9 @@ pub fn core_settings(settings: &Settings) -> CoreSettings {
 }
 
 fn apply_autostart(app: &AppHandle, enabled: bool) {
+    if cfg!(debug_assertions) {
+        return;
+    }
     let launcher = app.autolaunch();
     let result = if enabled {
         launcher.enable()

@@ -1,12 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppLogo } from "../../../components/AppLogo";
 import { Icon } from "../../../components/Icon";
+import { Spinner } from "../../../components/Spinner";
 import { Button } from "../../../components/ui/button";
-import { APP_NAME, TIMINGS } from "../../../constants";
+import { APP_NAME, EVENTS } from "../../../constants";
+import { useTauriEvent } from "../../../hooks/useTauriEvent";
 import { useI18n } from "../../../i18n/useI18n";
 import { api, errorMessage } from "../../../lib/commands";
 import { queries } from "../../../lib/queries";
+import { updateView } from "../../../lib/update";
+import type { UpdateStatus } from "../../../types/domain";
 import type { SectionProps } from "../../../types/ui";
 import { DiagnosticsSections } from "../DiagnosticsSections";
 import { SettingBlock } from "../SettingBlock";
@@ -14,17 +18,17 @@ import { SwitchRow } from "../SwitchRow";
 
 export function About({ settings, update }: SectionProps) {
   const { t } = useI18n();
-  const { data: status, refetch } = useQuery(queries.updateStatus());
+  const client = useQueryClient();
+  const query = queries.updateStatus();
+  const { data: status } = useQuery(query);
   const [exported, setExported] = useState<string | null>(null);
 
-  const check = () => {
-    api
-      .checkUpdate()
-      .then(() => window.setTimeout(() => void refetch(), TIMINGS.updateRecheckMs))
-      .catch(() => undefined);
-  };
-  const install = () => {
-    api.installUpdate().catch(() => undefined);
+  const setStatus = (next: UpdateStatus) => client.setQueryData(query.queryKey, next);
+  useTauriEvent<UpdateStatus>(EVENTS.updateProgress, setStatus);
+
+  const start = (run: () => Promise<void>) => {
+    if (status) setStatus({ ...status, phase: "checking", error: null });
+    run().catch(() => undefined);
   };
   const exportDiagnostics = () => {
     api
@@ -33,11 +37,7 @@ export function About({ settings, update }: SectionProps) {
       .catch((reason: unknown) => setExported(errorMessage(reason)));
   };
 
-  let version = "";
-  if (status?.error) version = status.error;
-  else if (status?.checkedAt && !status.available) {
-    version = t("settings.versionCurrent", { version: status.current });
-  } else if (status) version = t("settings.version", { version: status.current });
+  const view = status ? updateView(status) : null;
 
   return (
     <>
@@ -45,19 +45,41 @@ export function About({ settings, update }: SectionProps) {
         <AppLogo className="size-11" />
         <div className="mr-auto flex flex-col">
           <span className="font-bold text-[16px]">{APP_NAME}</span>
-          <span className="text-[12.5px] text-dim">{version}</span>
+          <span className="text-[12.5px] text-dim" aria-live="polite">
+            {view?.note && t(view.note.key, view.note.vars)}
+          </span>
         </div>
-        {status?.available ? (
-          <Button variant="primary" onClick={install}>
-            {t("settings.installUpdate", { version: status.available })}
-          </Button>
-        ) : (
-          <Button onClick={check} aria-busy={status?.busy}>
-            <Icon name="sync" size={16} className={status?.busy ? "spinning" : undefined} />
-            {t("settings.checkUpdate")}
+        {view && (
+          <Button
+            variant={status?.available ? "primary" : "secondary"}
+            disabled={view.busy}
+            aria-busy={view.busy}
+            onClick={() => start(status?.available ? api.installUpdate : api.checkUpdate)}
+            className="min-w-44 tabular-nums"
+          >
+            {view.busy ? (
+              <Spinner />
+            ) : (
+              <Icon name={status?.available ? "download" : "sync"} size={16} />
+            )}
+            {t(view.action.key, view.action.vars)}
           </Button>
         )}
       </div>
+      {view?.percent != null && (
+        <div
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={view.percent}
+          className="-mt-px h-0.5 overflow-hidden bg-line"
+        >
+          <div
+            className="h-full bg-text transition-[width] duration-(--dur-med) ease-(--ease-out)"
+            style={{ width: `${view.percent}%` }}
+          />
+        </div>
+      )}
       <SwitchRow
         label={t("settings.autoUpdate")}
         hint={t("settings.autoUpdateHint")}
