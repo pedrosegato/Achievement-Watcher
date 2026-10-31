@@ -566,7 +566,7 @@ impl Pass<'_> {
     ) -> CloudResult<SyncEvent> {
         let played_from = parent.as_deref().and_then(|id| self.cloud.find(id));
         if let Some(entry) = played_from
-            && false
+            && lost_files(&entry.1, &self.local)
         {
             return self.keep_cloud_line(entry, parent);
         }
